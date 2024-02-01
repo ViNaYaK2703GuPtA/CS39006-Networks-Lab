@@ -49,11 +49,11 @@ int checkEmailFormat(char *email) {
                 return 0;
             }
         }
-        if(cnt==0)
-        {
-            printf("Incorrect format: Invalid 'From' field\n");
-            return 0;
-        }
+        // if(cnt==0)
+        // {
+        //     printf("Incorrect format: Invalid 'From' field\n");
+        //     return 0;
+        // }
     }
 
     // Check To field
@@ -76,11 +76,11 @@ int checkEmailFormat(char *email) {
                 return 0;
             }
         }
-        if(cnt==0)
-        {
-            printf("Incorrect format: Invalid 'To' field\n");
-            return 0;
-        }
+        // if(cnt==0)
+        // {
+        //     printf("Incorrect format: Invalid 'To' field\n");
+        //     return 0;
+        // }
     }
 
     // Check Subject field
@@ -174,18 +174,21 @@ int main(int argc, char **argv)
                 {
                     
                     //memset(str, 0, sizeof(str));
-                    scanf(" %[^\n]s", str);
-                    if (strcmp(str, ".") == 0)
+                    //fflush(stdin);
+                   // scanf("%[^\n]%s", str);
+                   fgets(str, 80, stdin);
+                    if (strcmp(str, ".\n") == 0)
                     {
                         strcat(mail, str);
-                        strcat(mail, "\n");
+                       // strcat(mail, "\n");
                         break;
                     }
-                    //printf("%s\n", str);
+                    printf("%s\n", str);
                     strcat(mail, str);
-                    strcat(mail, "\n");
-                    //printf("%s\n", mail);
+                   // strcat(mail, "\n");
+                    printf("%s\n", mail);
                 }
+                printf("%s\n", mail);
             
             if (checkEmailFormat(mail)==0)
             {
@@ -197,7 +200,7 @@ int main(int argc, char **argv)
                 // 2. Send mail
                 // 3. Receive acknowledgement
                 // 4. Display acknowledgement
-
+                printf("C: %s\n", mail);
                 char *lines[MAX_LINES];
                 int numLines = 0;
 
