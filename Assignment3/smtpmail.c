@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
             char *extra;
             extra = (char *)malloc(100 * sizeof(char));         
             int flag = 0;
+            memset(username, 0, sizeof(username));
 
             while (1)
             {
@@ -152,10 +153,10 @@ int main(int argc, char *argv[])
                    message from the client.
                 */
                 memset(buf, 0, sizeof(buf));
-                recv(newsockfd, buf, 5000, 0);
+                recv(newsockfd, buf, sizeof(buf), 0);
                 printf("Client: %s\n", buf);
                 memset(response, 0, sizeof(response));
-                memset(username, 0, sizeof(username));
+                
                 memset(extra, 0, sizeof(extra));
 
                 if (flag == 1)
@@ -164,9 +165,13 @@ int main(int argc, char *argv[])
                     // {
                     // Append message to mailbox file
                     char filepath[100];
-                    sprintf(filepath, "./%s/mymailbox.txt", username);
+                    memset(filepath, 0, sizeof(filepath));
+                    strcat(filepath, "./");
+                    strcat(filepath, username);
+                    strcat(filepath, "/mymailbox.txt");
 
-                    FILE *file = fopen(filepath, "a");
+
+                    FILE *file = fopen(filepath, "w");
                     if (file == NULL)
                     {
                         printf("Unable to open mailbox file\n");
@@ -195,21 +200,24 @@ int main(int argc, char *argv[])
                         token = strtok(NULL, "\n");
                     }
 
-                    fclose(file);
+                    
                     // }
                     // else
                     // {
                     //     sprintf(response, "550 No such user here\n");
                     //     send(newsockfd, response, strlen(response), 0);
                     // }
+                    if(strcmp(buf, ".") == 0){
+                    fclose(file);
                     flag = 0;
                     sprintf(response, "250 OK Message accepted for delivery\n");
                     send(newsockfd, response, strlen(response) + 1, 0);
+                }
                     continue;
                 }
 
 
-                else if (strncmp(buf, "HELO", 4) == 0)
+                if (strncmp(buf, "HELO", 4) == 0)
                 {
                     // copy 250 OK Hello <domain> to response
                     char domain_name[100];
@@ -249,7 +257,7 @@ int main(int argc, char *argv[])
                 {
                     // copy 354 Start mail input; end with <CRLF>.<CRLF> to response
                     sprintf(response, "354 Enter mail, end with \".\" on a line by itself\n");
-                    send(newsockfd, response, strlen(response), 0);
+                    send(newsockfd, response, strlen(response)+1, 0);
                     flag = 1;
                 }
                 else if (strncmp(buf, "QUIT", 4) == 0)
