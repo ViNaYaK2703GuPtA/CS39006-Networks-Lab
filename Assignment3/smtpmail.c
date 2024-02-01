@@ -106,6 +106,15 @@ int main(int argc, char *argv[])
             printf("Accept error\n");
             exit(0);
         }
+        else
+        {
+            // In response server sends 220 <domain> Service ready
+            // use a function to get domain name
+            char domain[100];
+            gethostname(domain, sizeof(domain));
+            sprintf(buf, "220 %s Service ready\n", domain);
+            send(newsockfd, buf, strlen(buf) + 1, 0); // check
+        }
 
         /* Having successfully accepted a client connection, the
            server now forks. The parent closes the new socket
@@ -133,6 +142,8 @@ int main(int argc, char *argv[])
             response = (char *)malloc(5000 * sizeof(char));
             char *username;
             username = (char *)malloc(100 * sizeof(char));
+            char *extra;
+            extra = (char *)malloc(100 * sizeof(char));         
             int flag = 0;
 
             while (1)
@@ -142,47 +153,49 @@ int main(int argc, char *argv[])
                 */
                 memset(buf, 0, sizeof(buf));
                 recv(newsockfd, buf, 5000, 0);
+                printf("Client: %s\n", buf);
                 memset(response, 0, sizeof(response));
                 memset(username, 0, sizeof(username));
+                memset(extra, 0, sizeof(extra));
 
                 if (flag == 1)
                 {
                     // if (username != NULL && (strcmp(username, "ishaan26") == 0 || strcmp(username, "vinayak27") == 0))
                     // {
-                        // Append message to mailbox file
-                        char filepath[100];
-                        sprintf(filepath, "./%s/mymailbox.txt", username);
+                    // Append message to mailbox file
+                    char filepath[100];
+                    sprintf(filepath, "./%s/mymailbox.txt", username);
 
-                        FILE *file = fopen(filepath, "a");
-                        if (file == NULL)
+                    FILE *file = fopen(filepath, "a");
+                    if (file == NULL)
+                    {
+                        printf("Unable to open mailbox file\n");
+                        return 0;
+                    }
+
+                    // Get current time
+                    time_t now = time(NULL);
+                    struct tm *timeinfo = localtime(&now);
+                    char time_str[20];
+                    strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", timeinfo);
+
+                    // Append message to mailbox file line by line
+                    char *token = strtok(buf, "\n");
+                    while (token != NULL)
+                    {
+                        if (strncmp(token, "Subject:", 8) == 0)
                         {
-                            printf("Unable to open mailbox file\n");
-                            return;
+                            fprintf(file, "%s\n", token);
+                            fprintf(file, "Received: %s\n", time_str);
                         }
-
-                        // Get current time
-                        time_t now = time(NULL);
-                        struct tm *timeinfo = localtime(&now);
-                        char time_str[20];
-                        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", timeinfo);
-
-                        // Append message to mailbox file line by line
-                        char *token = strtok(buf, "\n");
-                        while (token != NULL)
+                        else
                         {
-                            if (strncmp(token, "Subject:", 8) == 0)
-                            {
-                                fprintf(file, "%s\n", token);
-                                fprintf(file, "Received: %s\n", time_str);
-                            }
-                            else
-                            {
-                                fprintf(file, "%s\n", token);
-                            }
-                            token = strtok(NULL, "\n");
+                            fprintf(file, "%s\n", token);
                         }
+                        token = strtok(NULL, "\n");
+                    }
 
-                        fclose(file);
+                    fclose(file);
                     // }
                     // else
                     // {
@@ -191,19 +204,10 @@ int main(int argc, char *argv[])
                     // }
                     flag = 0;
                     sprintf(response, "250 OK Message accepted for delivery\n");
-                    send(newsockfd, response, strlen(response)+1, 0);
+                    send(newsockfd, response, strlen(response) + 1, 0);
                     continue;
                 }
 
-                if (strcmp(buf, "client connects to SMTP port") == 0)
-                {
-                    // In response server sends 220 <domain> Service ready
-                    // use a function to get domain name
-                    char domain[100];
-                    gethostname(domain, sizeof(domain));
-                    sprintf(buf, "220 %s Service ready\n", domain);
-                    send(newsockfd, buf, strlen(buf) + 1, 0); // check
-                }
 
                 else if (strncmp(buf, "HELO", 4) == 0)
                 {
@@ -225,13 +229,13 @@ int main(int argc, char *argv[])
                 }
                 else if (strncmp(buf, "RCPT TO:", 8) == 0)
                 {
-                    // store the username which is after RCPT TO: in username
-                    char *ptr = strstr(buf, "RCPT TO:");
-                    strcpy(username, ptr + 8);
+                    // store the username which is after RCPT TO: before @ in username
+                    sscanf(buf, "RCPT TO: %100[^@]@%100[^\n]%s", username, extra, extra);
+                   // strcpy(username, ptr + 8);
 
                     if (username != NULL && (strcmp(username, "ishaan26") == 0 || strcmp(username, "vinayak27") == 0))
                     {
-                        sprintf(response, "250 root... Recipient ok\n", username);
+                        sprintf(response, "250 root... Recipient ok\n");
                         send(newsockfd, response, strlen(response) + 1, 0);
                     }
                     else
