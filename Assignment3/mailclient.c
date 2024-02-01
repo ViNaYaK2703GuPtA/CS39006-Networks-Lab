@@ -226,7 +226,8 @@ int main(int argc, char **argv)
                 if(strncmp(response, "220", 3)!=0)
                 {
                     printf("Error in connection\n");
-                    exit(0);
+                    close(sockfd);
+                    continue;
                 }
 
 
@@ -237,7 +238,7 @@ int main(int argc, char **argv)
                 sscanf(lines[0], "From: %50[^@]@%50[^\n]", username, domain_name);
                 char buffer[100];
                 memset(buffer, 0, sizeof(buffer));
-                sprintf(buffer, "HELO %s\n", domain_name);
+                sprintf(buffer, "HELO %s\r\n", domain_name);
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
@@ -245,7 +246,8 @@ int main(int argc, char **argv)
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
-                    exit(0);
+                    close(sockfd);
+                    continue;
                 }
 
 
@@ -256,7 +258,7 @@ int main(int argc, char **argv)
                 strcat(buffer, username);
                 strcat(buffer, "@");
                 strcat(buffer, domain_name);
-                strcat(buffer, "\0");
+                strcat(buffer, "\r\n");    //check
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
@@ -264,7 +266,8 @@ int main(int argc, char **argv)
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
-                    exit(0);
+                    close(sockfd);
+                    continue;  
                 }
 
 
@@ -278,7 +281,7 @@ int main(int argc, char **argv)
                 strcat(buffer, to_username);
                 strcat(buffer, "@");
                 strcat(buffer, to_domain_name);
-                strcat(buffer, "\0");
+                strcat(buffer, "\r\n");         //check
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
@@ -286,13 +289,14 @@ int main(int argc, char **argv)
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
-                    exit(0);
+                    close(sockfd);
+                    continue;
                 }
 
 
                 // DATA
                 memset(buffer, 0, sizeof(buffer));
-                sprintf(buffer, "DATA\n");
+                sprintf(buffer, "DATA\r\n");
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
@@ -300,14 +304,17 @@ int main(int argc, char **argv)
                 if(strncmp(response, "354", 3)!=0)
                 {
                     printf("Error in connection\n");
-                    exit(0);
+                    close(sockfd);
+                    continue;
                 }
 
 
                 // Send mail
                 for (int i = 0; i < numLines; i++) {
-                    printf("C: %s\n", lines[i]);
+                    //printf("C: %s\n", lines[i]);
                     send(sockfd, lines[i], strlen(lines[i]), 0);
+                    memset(response, 0, sizeof(response));
+                    recv(sockfd, response, sizeof(response), 0);
                 }
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
@@ -315,13 +322,14 @@ int main(int argc, char **argv)
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
-                    exit(0);
+                    close(sockfd);
+                    continue;
                 }
 
                 
                 // QUIT
                 memset(buffer, 0, sizeof(buffer));
-                sprintf(buffer, "QUIT\n");
+                sprintf(buffer, "QUIT\r\n");
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
@@ -329,10 +337,13 @@ int main(int argc, char **argv)
                 if(strncmp(response, "221", 3)!=0)
                 {
                     printf("Error in connection\n");
-                    exit(0);
+                    close(sockfd);
+                    continue; 
                 }
             }
             close(sockfd);
+            printf("Quitting...\n");
+            break;
 
         }
 
