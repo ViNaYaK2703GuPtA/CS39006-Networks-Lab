@@ -194,6 +194,7 @@ int main(int argc, char **argv)
                 char temp[5000];
                 //memset(temp, 0, sizeof(temp));
                 strcpy(temp1, mail);
+                strcpy(temp,mail);
 
                 //printf("%s\n", mail);
             
@@ -207,7 +208,7 @@ int main(int argc, char **argv)
                 // 2. Send mail
                 // 3. Receive acknowledgement
                 // 4. Display acknowledgement
-                printf("C: %s", mail);
+              //  printf("C: %s", mail);
                 char *lines[MAX_LINES];
                 int numLines = 0;
 
@@ -215,7 +216,7 @@ int main(int argc, char **argv)
                 char *line = strtok(temp1, "\n");
                 while (line != NULL && numLines < MAX_LINES) {
                     lines[numLines++] = line;
-                    printf("%s\n", line);
+                    //printf("%s\n", line);
                     line = strtok(NULL, "\n");
                 }
                 char response[100];
