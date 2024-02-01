@@ -107,6 +107,7 @@ int checkEmailFormat(char *email) {
     return 1; // Format is correct
 }
 
+
 int main(int argc, char **argv)
 {
     if (argc != 4)
@@ -138,7 +139,7 @@ int main(int argc, char **argv)
         {
             int sockfd;
             struct sockaddr_in servaddr;
-            char buff[MAXLINE];
+            
             int n;
 
             // Creating socket file descriptor
@@ -168,13 +169,6 @@ int main(int argc, char **argv)
             memset(mail, 0, sizeof(mail));
             
             printf("Enter mail in given format:\nFrom: <username>@<domain name>\nTo: <username>@<domain name>\nSubject: <subject string, max 50 characters>\n<Message body – one or more lines, terminated by a final line with only a fullstop character>\n");
-            /*On  getting  the  complete  message,  the  process  first  checks  the  format  of  the  message.  The
-                following checks must be done:
-                1.  The  From,  To,  and  Subject  field  must  be  there,  in  that  order  and  in  proper  format.  The
-                message body can be empty (just the fullstop at the last line).
-                2. The format for the From and To fields must be X@Y.
-                If  the  format  is  not  correct,  then  “Incorrect  format”  is  printed,  and  the  three  options  are  given
-                again. The entire mail has to be entered again, there is no editing facility. */
                 char str[80];
                 while(1)
                 {
@@ -203,13 +197,132 @@ int main(int argc, char **argv)
                 // 2. Send mail
                 // 3. Receive acknowledgement
                 // 4. Display acknowledgement
-                printf("Correct format\n");
+
+                char *lines[MAX_LINES];
+                int numLines = 0;
+
+                // Tokenize the email into lines
+                char *line = strtok(mail, "\n");
+                while (line != NULL && numLines < MAX_LINES) {
+                    lines[numLines++] = line;
+                    printf("%s\n", line);
+                    line = strtok(NULL, "\n");
+                }
+                char response[100];
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                printf("S: %s\n", response);
+                if(strncmp(response, "220", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    exit(0);
+                }
+
+
+
+                // HELO <domain name>
+                char domain_name[50];
+                char username[50];
+                sscanf(lines[0], "From: %50[^@]@%50[^\n]", username, domain_name);
+                char buffer[100];
+                memset(buffer, 0, sizeof(buffer));
+                sprintf(buffer, "HELO %s\n", domain_name);
+                send(sockfd, buffer, sizeof(buffer), 0);
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                printf("S: %s\n", response);
+                if(strncmp(response, "250", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    exit(0);
+                }
+
+
+
+                // MAIL FROM: username@domain_name
+                memset(buffer, 0, sizeof(buffer));
+                strcpy(buffer, "MAIL FROM: ");
+                strcat(buffer, username);
+                strcat(buffer, "@");
+                strcat(buffer, domain_name);
+                strcat(buffer, "\0");
+                send(sockfd, buffer, sizeof(buffer), 0);
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                printf("S: %s\n", response);
+                if(strncmp(response, "250", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    exit(0);
+                }
+
+
+
+                // RCPT TO: username@domain_name
+                char to_username[50];
+                char to_domain_name[50];
+                sscanf(lines[1], "To: %50[^@]@%50[^\n]", to_username, to_domain_name);
+                memset(buffer, 0, sizeof(buffer));
+                strcpy(buffer, "RCPT TO: ");
+                strcat(buffer, to_username);
+                strcat(buffer, "@");
+                strcat(buffer, to_domain_name);
+                strcat(buffer, "\0");
+                send(sockfd, buffer, sizeof(buffer), 0);
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                printf("S: %s\n", response);
+                if(strncmp(response, "250", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    exit(0);
+                }
+
+
+                // DATA
+                memset(buffer, 0, sizeof(buffer));
+                sprintf(buffer, "DATA\n");
+                send(sockfd, buffer, sizeof(buffer), 0);
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                printf("S: %s\n", response);
+                if(strncmp(response, "354", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    exit(0);
+                }
+
+
+                // Send mail
+                for (int i = 0; i < numLines; i++) {
+                    printf("C: %s\n", lines[i]);
+                    send(sockfd, lines[i], strlen(lines[i]), 0);
+                }
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                printf("S: %s\n", response);
+                if(strncmp(response, "250", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    exit(0);
+                }
+
+                
+                // QUIT
+                memset(buffer, 0, sizeof(buffer));
+                sprintf(buffer, "QUIT\n");
+                send(sockfd, buffer, sizeof(buffer), 0);
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                printf("S: %s\n", response);
+                if(strncmp(response, "221", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    exit(0);
+                }
             }
-            
+            close(sockfd);
 
-
-            // Close the socket
-            // close(sockfd);
         }
 
         else if (choice == 3)
