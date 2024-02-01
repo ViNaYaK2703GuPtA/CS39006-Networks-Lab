@@ -11,7 +11,7 @@
 
 #define MAX_LINES 50
 #define MAX_CHAR_PER_LINE 80
-int checkEmailFormat(char *email) {
+int checkEmailFormat(const char *email) {
     char *lines[MAX_LINES];
     int numLines = 0;
 
@@ -170,11 +170,12 @@ int main(int argc, char **argv)
             
             printf("Enter mail in given format:\nFrom: <username>@<domain name>\nTo: <username>@<domain name>\nSubject: <subject string, max 50 characters>\n<Message body – one or more lines, terminated by a final line with only a fullstop character>\n");
                 char str[80];
+                //fflush(stdin);
                 while(1)
                 {
                     
-                    //memset(str, 0, sizeof(str));
-                    //fflush(stdin);
+                    memset(str, 0, sizeof(str));
+                    fflush(stdin);
                    // scanf("%[^\n]%s", str);
                    fgets(str, 80, stdin);
                     if (strcmp(str, ".\n") == 0)
@@ -183,12 +184,16 @@ int main(int argc, char **argv)
                        // strcat(mail, "\n");
                         break;
                     }
-                    printf("%s\n", str);
+                    //printf("%s\n", str);
                     strcat(mail, str);
                    // strcat(mail, "\n");
-                    printf("%s\n", mail);
+                    //  printf("%s\n", mail);
                 }
-                printf("%s\n", mail);
+                char temp[5000];
+                memset(temp, 0, sizeof(temp));
+                strcpy(temp, mail);
+
+                //printf("%s\n", mail);
             
             if (checkEmailFormat(mail)==0)
             {
@@ -200,7 +205,7 @@ int main(int argc, char **argv)
                 // 2. Send mail
                 // 3. Receive acknowledgement
                 // 4. Display acknowledgement
-                printf("C: %s\n", mail);
+                printf("C: %s\n", temp);
                 char *lines[MAX_LINES];
                 int numLines = 0;
 
