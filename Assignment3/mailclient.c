@@ -8,6 +8,7 @@
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #define MAX_LINES 50
 #define MAX_CHAR_PER_LINE 80
@@ -19,6 +20,7 @@ int checkEmailFormat(char *email) {
     char *line = strtok(email, "\n");
     while (line != NULL && numLines < MAX_LINES) {
         lines[numLines++] = line;
+        //printf("%s\n", line);
         line = strtok(NULL, "\n");
     }
 
@@ -134,6 +136,25 @@ int main(int argc, char **argv)
             // 2. Send username and password
             // 3. Receive mails
             // 4. Display mails
+
+            /*In  this  case,  first  a  list  of  the  mails  in  the  user’s  mymailbox  file  is  shown  by  the  program  on  the  
+            screen in the following format:  
+            Sl. No. <Sender’s email id> <When received, in date : hour : minute> <Subject>  
+            The  Sl.  No.  is  the  serial  no.  of  the  mail  in  the  mymailbox  file.  The  program  then  gives  a  prompt  
+            “Enter  mail  no.  to  see:”  and  waits  for  the  user  to  enter  a  number  on  the  screen.  If  the  number  
+            entered is –1, the program goes back to the main menu (the three options). If the number entered is 
+            out  of  range,  an  error  message  “Mail  no.  out  of  range,  give  again”  is  printed  and  the  user  is  
+            prompted to give the number of the mail to read again. If the user enters a valid mail number, that 
+            mail (the entire content including From, To, Subject, Received, and message body) is shown on the 
+            screen. The program waits on a getchar() after showing the mail. If the character is ‘d’, the mail is 
+            deleted. Otherwise, it returns to show the list of emails again when the user hits any other character 
+            after reading the mail.  */
+
+            int sockfd;
+            struct sockaddr_in servaddr;
+            
+
+
         }
         else if (choice == 2)
         {
@@ -208,21 +229,24 @@ int main(int argc, char **argv)
                 // 2. Send mail
                 // 3. Receive acknowledgement
                 // 4. Display acknowledgement
-              //  printf("C: %s", mail);
                 char *lines[MAX_LINES];
+                //dynamically allocate memory for each line
+                for (int i = 0; i < MAX_LINES; i++) {
+                    lines[i] = (char *)malloc(MAX_CHAR_PER_LINE * sizeof(char));
+                }
                 int numLines = 0;
 
                 //Tokenize the email into lines
                 char *line = strtok(temp1, "\n");
                 while (line != NULL && numLines < MAX_LINES) {
-                    lines[numLines++] = line;
-                    //printf("%s\n", line);
+                    strcpy(lines[numLines++],line);
+                    //printf("%s", lines[numLines-1]);
                     line = strtok(NULL, "\n");
                 }
                 char response[100];
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
-                printf("S: %s\n", response);
+                //printf("S: %s\n", response);
                 if(strncmp(response, "220", 3)!=0)
                 {
                     printf("Error in connection\n");
@@ -242,7 +266,7 @@ int main(int argc, char **argv)
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
-                printf("S: %s\n", response);
+               // printf("S: %s\n", response);
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
@@ -262,7 +286,7 @@ int main(int argc, char **argv)
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
-                printf("S: %s\n", response);
+                //printf("S: %s\n", response);
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
@@ -285,7 +309,7 @@ int main(int argc, char **argv)
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
-                printf("S: %s\n", response);
+                //printf("S: %s\n", response);
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
@@ -300,7 +324,7 @@ int main(int argc, char **argv)
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
-                printf("S: %s\n", response);
+                //printf("S: %s\n", response);
                 if(strncmp(response, "354", 3)!=0)
                 {
                     printf("Error in connection\n");
@@ -308,17 +332,19 @@ int main(int argc, char **argv)
                     continue;
                 }
 
-
+                
                 // Send mail
                 for (int i = 0; i < numLines; i++) {
                     //printf("C: %s\n", lines[i]);
+                    strcat(lines[i], "\r\n");
+                    //printf("%s", lines[i]);
                     send(sockfd, lines[i], strlen(lines[i]), 0);
-                    memset(response, 0, sizeof(response));
-                    recv(sockfd, response, sizeof(response), 0);
+                    // memset(response, 0, sizeof(response));
+                    // recv(sockfd, response, sizeof(response), 0);
                 }
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
-                printf("S: %s\n", response);
+                //printf("S: %s\n", response);
                 if(strncmp(response, "250", 3)!=0)
                 {
                     printf("Error in connection\n");
@@ -333,7 +359,7 @@ int main(int argc, char **argv)
                 send(sockfd, buffer, sizeof(buffer), 0);
                 memset(response, 0, sizeof(response));
                 recv(sockfd, response, sizeof(response), 0);
-                printf("S: %s\n", response);
+                //printf("S: %s\n", response);
                 if(strncmp(response, "221", 3)!=0)
                 {
                     printf("Error in connection\n");
