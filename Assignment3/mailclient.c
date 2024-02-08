@@ -136,73 +136,195 @@ int main(int argc, char **argv)
             // 3. Receive mails
             // 4. Display mails
 
-            /*In  this  case,  first  a  list  of  the  mails  in  the  user’s  mymailbox  file  is  shown  by  the  program  on  the  
-            screen in the following format:  
-            Sl. No. <Sender’s email id> <When received, in date : hour : minute> <Subject>  
-            The  Sl.  No.  is  the  serial  no.  of  the  mail  in  the  mymailbox  file.  The  program  then  gives  a  prompt  
-            “Enter  mail  no.  to  see:”  and  waits  for  the  user  to  enter  a  number  on  the  screen.  If  the  number  
-            entered is –1, the program goes back to the main menu (the three options). If the number entered is 
-            out  of  range,  an  error  message  “Mail  no.  out  of  range,  give  again”  is  printed  and  the  user  is  
-            prompted to give the number of the mail to read again. If the user enters a valid mail number, that 
-            mail (the entire content including From, To, Subject, Received, and message body) is shown on the 
-            screen. The program waits on a getchar() after showing the mail. If the character is ‘d’, the mail is 
-            deleted. Otherwise, it returns to show the list of emails again when the user hits any other character 
-            after reading the mail.  */
+            // char filepath[100];
+            // memset(filepath, 0, sizeof(filepath));
+            // strcat(filepath, "./");
+            // strcat(filepath, username);
+            // strcat(filepath, "/mymailbox.txt");
+
+            // FILE *file = fopen(filepath, "r");
+            // if (file == NULL)
+            // {
+            //     printf("Unable to open mailbox file\n");
+            //     return 0;
+            // }
+            // char str[100];
+            // memset(str, 0, sizeof(str));
+
+   
+            // int sno = 1;
+            // char sender[50], received[50], subject[100];
+            
+    
+            // int i = 1;
+            // memset(sender,0,sizeof(sender));
+            // memset(received, 0, sizeof(received));
+            // memset(subject, 0, sizeof(subject));
+           
+
+            // while (fgets(str, sizeof(str), file) != NULL) {
+            //     fflush(stdin);
+            //     fflush(stdout); 
+
+            //     //printf("%s", str);
+            //     if (strncmp(str, "From: ", 6) == 0) {
+            //         sscanf(str + 6, "%49[^\n]", sender);
+            //     } else if (strncmp(str, "Subject: ", 9) == 0) {
+            //         sscanf(str + 9, "%99[^\n]", subject);
+            //     } else if (strncmp(str, "Received: ", 10) == 0) {
+            //         sscanf(str + 10, "%49[^\n]", received);
+            //         fflush(stdout);
+            //         printf("%d ", sno);
+            //         printf("%s %s %s\n", sender, received, subject);
+            //         memset(sender, 0, sizeof(sender));
+            //         memset(received, 0, sizeof(received));
+            //         memset(subject, 0, sizeof(subject));
+            //         memset(str,0,sizeof(str));
+            //         sno++;
+            //     }
+            //     else continue;
+            // }
+
+            // fclose(file);
+
+
 
             int sockfd;
             struct sockaddr_in servaddr;
+            int n;
 
-            char filepath[100];
-            memset(filepath, 0, sizeof(filepath));
-            strcat(filepath, "./");
-            strcat(filepath, username);
-            strcat(filepath, "/mymailbox.txt");
-
-            FILE *file = fopen(filepath, "r");
-            if (file == NULL)
+            if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
             {
-                printf("Unable to open mailbox file\n");
+                perror("Unable to create socket\n");
+                exit(0);
+            }
+
+            servaddr.sin_family = AF_INET;
+            servaddr.sin_port = htons(atoi(argv[2]));
+            servaddr.sin_addr.s_addr = inet_addr(argv[1]);
+
+            if(connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
+            {
+                perror("Unable to connect to server\n");
+                exit(0);
+            }
+
+             char response[100];
+            memset(response, 0, sizeof(response));
+            recv(sockfd, response, sizeof(response), 0);
+
+            char buffer[100];
+            memset(buffer, 0, sizeof(buffer));
+            sprintf(buffer, "USER %s\r\n", username);
+            send(sockfd, buffer, sizeof(buffer), 0);
+            memset(response, 0, sizeof(response));
+            recv(sockfd, response, sizeof(response), 0);
+
+            if(strncmp(response, "-ERR",4)==0)
+            {
+                printf("Invalid username\n");
+                close(sockfd);
                 return 0;
             }
-            char str[100];
-            memset(str, 0, sizeof(str));
-
-            //int i=1;
-            int sno = 1;
-            char sender[50], received[50], subject[100];
             
-            //char sender[50], receiver[50], subject[100], received[20];
-            int i = 1;
-            memset(sender,0,sizeof(sender));
-            memset(received, 0, sizeof(received));
-            memset(subject, 0, sizeof(subject));
-            //memset(receiver, 0, sizeof(receiver));
+            memset(buffer, 0, sizeof(buffer));
+            sprintf(buffer, "PASS %s\r\n", password);
+            send(sockfd, buffer, sizeof(buffer), 0);
+            memset(response, 0, sizeof(response));
+            recv(sockfd, response, sizeof(response), 0);
 
-            while (fgets(str, sizeof(str), file) != NULL) {
-                fflush(stdin);
-                fflush(stdout); 
-
-                //printf("%s", str);
-                if (strncmp(str, "From: ", 6) == 0) {
-                    sscanf(str + 6, "%49[^\n]", sender);
-                } else if (strncmp(str, "Subject: ", 9) == 0) {
-                    sscanf(str + 9, "%99[^\n]", subject);
-                } else if (strncmp(str, "Received: ", 10) == 0) {
-                    sscanf(str + 10, "%49[^\n]", received);
-                    fflush(stdout);
-                    printf("%d ", sno);
-                    printf("%s %s %s\n", sender, received, subject);
-                    memset(sender, 0, sizeof(sender));
-                    memset(received, 0, sizeof(received));
-                    memset(subject, 0, sizeof(subject));
-                    memset(str,0,sizeof(str));
-                    sno++;
-                }
-                else continue;
+            if(strncmp(response, "-ERR",4)==0)
+            {
+                printf("Invalid password\n");
+                close(sockfd);
+                return 0;
             }
-            
 
+            // sending STAT command
+            memset(buffer, 0, sizeof(buffer));
+            sprintf(buffer, "STAT\r\n");
+            send(sockfd, buffer, sizeof(buffer), 0);
+            memset(response, 0, sizeof(response));
+            recv(sockfd, response, sizeof(response), 0);
 
+            int mails, size;
+            sscanf(response, "+OK %d %d", &mails, &size);
+
+            // sending LIST command
+            while(1){
+                memset(buffer, 0, sizeof(buffer));
+                sprintf(buffer, "LIST\r\n");
+                send(sockfd, buffer, sizeof(buffer), 0);
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                if(strncmp(response, "+OK", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    close(sockfd);
+                    continue;
+                }
+
+                for(int i=1;i<=mails;i++)
+                {
+                    char temp[200];
+                    memset(temp, 0, sizeof(temp));
+                    recv(sockfd, temp, sizeof(temp), 0);
+                    printf("%s\n", temp);
+                }
+
+                printf("Enter mail no. to see: ");
+                int mail_no;
+                scanf("%d", &mail_no);
+                if(mail_no==-1)
+                {
+                    send(sockfd, "QUIT\r\n", 6, 0);
+                    close(sockfd);
+                    break;
+                }
+                while(mail_no<1 || mail_no>=mails)
+                {
+                    printf("Mail no. out of range, give again\n");
+                    scanf("%d", &mail_no);
+                }
+
+                memset(buffer, 0, sizeof(buffer));
+                sprintf(buffer, "RETR %d\r\n", mail_no);
+                send(sockfd, buffer, sizeof(buffer), 0);
+                memset(response, 0, sizeof(response));
+                recv(sockfd, response, sizeof(response), 0);
+                if(strncmp(response, "+OK", 3)!=0)
+                {
+                    printf("Error in connection\n");
+                    close(sockfd);
+                    continue;
+                }
+                while(1)
+                {
+                    memset(buffer, 0, sizeof(buffer));
+                    recv(sockfd, buffer, sizeof(buffer), 0);
+                    printf("%s ", buffer);
+                    if(strncmp(buffer, ".\r\n", 3)==0)
+                    {
+                        break;
+                    }
+                }
+                  
+                char c = getchar();
+                if(c=='d')
+                {
+                    memset(buffer, 0, sizeof(buffer));
+                    sprintf(buffer, "DELE %d\r\n", mail_no);
+                    send(sockfd, buffer, sizeof(buffer), 0);
+                    memset(response, 0, sizeof(response));
+                    recv(sockfd, response, sizeof(response), 0);
+                    if(strncmp(response, "+OK", 3)!=0)
+                    {
+                        printf("Error in connection\n");
+                        close(sockfd);
+                        continue;
+                    }
+                }             
+            }
         }
         else if (choice == 2)
         {
