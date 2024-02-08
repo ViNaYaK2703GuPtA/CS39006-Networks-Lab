@@ -20,7 +20,6 @@ int checkEmailFormat(char *email) {
     char *line = strtok(email, "\n");
     while (line != NULL && numLines < MAX_LINES) {
         lines[numLines++] = line;
-        //printf("%s\n", line);
         line = strtok(NULL, "\n");
     }
 
@@ -152,6 +151,48 @@ int main(int argc, char **argv)
 
             int sockfd;
             struct sockaddr_in servaddr;
+
+            char filepath[100];
+            memset(filepath, 0, sizeof(filepath));
+            strcat(filepath, "./");
+            strcat(filepath, username);
+            strcat(filepath, "/mymailbox.txt");
+
+            FILE *file = fopen(filepath, "r");
+            if (file == NULL)
+            {
+                printf("Unable to open mailbox file\n");
+                return 0;
+            }
+            char str[100];
+            memset(str, 0, sizeof(str));
+
+            //int i=1;
+            int sno=1;
+            char sender[50], date[50], subject[100];
+            memset(sender,0,sizeof(sender));
+            memset(date, 0, sizeof(date));
+            memset(subject, 0, sizeof(subject));
+
+            while (fgets(str, sizeof(str), file) != NULL) {
+                if (strncmp(str, "From: ", 6) == 0) {
+                    sscanf(str + 6, "%49[^\n]", sender);
+                } else if (strncmp(str, "Subject: ", 9) == 0) {
+                    sscanf(str + 9, "%99[^\n]", subject);
+                } else if (strncmp(str, "Received: ", 10) == 0) {
+                    sscanf(str + 10, "%49[^\n]", date);
+                }
+
+                if (sender[0] != '\0' && date[0] != '\0' && subject[0] != '\0') {
+                    //sno = i;
+                    printf("%d ", sno);
+                    printf("%s %s %s\n", sender, date, subject);
+                    memset(sender, 0, sizeof(sender));
+                    memset(date, 0, sizeof(date));
+                    memset(subject, 0, sizeof(subject));
+                    sno++;
+                }
+            }
             
 
 
@@ -352,7 +393,7 @@ int main(int argc, char **argv)
                     continue;
                 }
 
-                
+                    
                 // QUIT
                 memset(buffer, 0, sizeof(buffer));
                 sprintf(buffer, "QUIT\r\n");
