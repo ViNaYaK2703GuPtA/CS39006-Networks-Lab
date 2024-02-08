@@ -168,30 +168,37 @@ int main(int argc, char **argv)
             memset(str, 0, sizeof(str));
 
             //int i=1;
-            int sno=1;
-            char sender[50], date[50], subject[100];
+            int sno = 1;
+            char sender[50], received[50], subject[100];
+            
+            //char sender[50], receiver[50], subject[100], received[20];
+            int i = 1;
             memset(sender,0,sizeof(sender));
-            memset(date, 0, sizeof(date));
+            memset(received, 0, sizeof(received));
             memset(subject, 0, sizeof(subject));
+            //memset(receiver, 0, sizeof(receiver));
 
             while (fgets(str, sizeof(str), file) != NULL) {
+                fflush(stdin);
+                fflush(stdout); 
+
+                //printf("%s", str);
                 if (strncmp(str, "From: ", 6) == 0) {
                     sscanf(str + 6, "%49[^\n]", sender);
                 } else if (strncmp(str, "Subject: ", 9) == 0) {
                     sscanf(str + 9, "%99[^\n]", subject);
                 } else if (strncmp(str, "Received: ", 10) == 0) {
-                    sscanf(str + 10, "%49[^\n]", date);
-                }
-
-                if (sender[0] != '\0' && date[0] != '\0' && subject[0] != '\0') {
-                    //sno = i;
+                    sscanf(str + 10, "%49[^\n]", received);
+                    fflush(stdout);
                     printf("%d ", sno);
-                    printf("%s %s %s\n", sender, date, subject);
+                    printf("%s %s %s\n", sender, received, subject);
                     memset(sender, 0, sizeof(sender));
-                    memset(date, 0, sizeof(date));
+                    memset(received, 0, sizeof(received));
                     memset(subject, 0, sizeof(subject));
+                    memset(str,0,sizeof(str));
                     sno++;
                 }
+                else continue;
             }
             
 
