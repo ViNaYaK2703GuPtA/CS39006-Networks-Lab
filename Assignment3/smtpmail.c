@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
             char* token;
             token = (char *)malloc(100 * sizeof(char));
             memset(token, 0, sizeof(token));
-            token = strtok(temp, "\n");
+            token = strtok(temp, "\r\n");
 
             time_t now = time(NULL);
             struct tm *timeinfo = localtime(&now);
