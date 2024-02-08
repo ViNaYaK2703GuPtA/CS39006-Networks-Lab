@@ -26,7 +26,6 @@ int main(int argc, char *argv[])
     int i;
     char buf[5000]; /* We will use this buffer for communication */
 
-
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printf("Cannot create socket\n");
@@ -34,7 +33,6 @@ int main(int argc, char *argv[])
     }
 
     int my_port = atoi(argv[1]);
-
 
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -47,7 +45,7 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    listen(sockfd, 10); 
+    listen(sockfd, 10);
     while (1)
     {
 
@@ -73,7 +71,7 @@ int main(int argc, char *argv[])
         if (fork() == 0)
         {
 
-            close(sockfd); 
+            close(sockfd);
 
             printf("Server is ready!\n");
             char *response;
@@ -88,7 +86,7 @@ int main(int argc, char *argv[])
             // for command HELO
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-            //printf("C: %s\n", buf);
+            // printf("C: %s\n", buf);
 
             char domain_name[100];
             gethostname(domain_name, sizeof(domain_name));
@@ -98,7 +96,7 @@ int main(int argc, char *argv[])
             // for command MAIL FROM:
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-           // printf("C: %s\n", buf);
+            // printf("C: %s\n", buf);
 
             char *ptr = strstr(buf, "MAIL FROM:");
             if (ptr != NULL)
@@ -110,7 +108,7 @@ int main(int argc, char *argv[])
             // for command RCPT TO:
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-            //printf("C: %s\n", buf);
+            // printf("C: %s\n", buf);
 
             sscanf(buf, "RCPT TO: %100[^@]@%100[^\n]%s", username, extra, extra);
 
@@ -128,7 +126,7 @@ int main(int argc, char *argv[])
             // for command DATA
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-           // printf("C: %s\n", buf);
+            // printf("C: %s\n", buf);
 
             // copy 354 Start mail input; end with <CRLF>.<CRLF> to response
             sprintf(response, "354 Enter mail, end with \".\" on a line by itself\r\n");
@@ -143,62 +141,53 @@ int main(int argc, char *argv[])
             FILE *file = fopen(filepath, "a");
             if (file == NULL)
             {
-                printf("Unable to open mailbox file\n");    
+                printf("Unable to open mailbox file\n");
                 return 0;
             }
 
             char temp[5000];
+            memset(temp, 0, sizeof(temp));
             while (1)
             {
                 /* We again initialize the buffer, and receive a
                    message from the client.
                 */
-               memset(buf, 0, sizeof(buf));
+                memset(buf, 0, sizeof(buf));
                 recv(newsockfd, buf, sizeof(buf), 0);
                 strcat(temp, buf);
-    
-                // Get current time
-                time_t now = time(NULL);
-                struct tm *timeinfo = localtime(&now);
-                char time_str[20];
-                strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", timeinfo);
-
-                // Append message to mailbox file line by line
-                
-                // if (strncmp(buf, "Subject:", 8) == 0)
-                // {
-                //     fprintf(file, "%s\n", buf);
-                //     fprintf(file, "Received: %s\n", time_str);
-                // }
-                // else
-                // {
-                //     fprintf(file, "%s\n", buf);
-                // }
 
                 if (temp[strlen(temp) - 3] == '.' && temp[strlen(temp) - 2] == '\r' && temp[strlen(temp) - 1] == '\n' && temp[strlen(temp) - 4] == '\n')
                 {
-                    //fclose(file);
+                    // fclose(file);
                     sprintf(response, "250 OK Message accepted for delivery\r\n");
                     send(newsockfd, response, strlen(response) + 1, 0);
                     break;
                 }
-                
-                
             }
-            //print the content of temp into the mymailbox file and handle the case of Subject: and Received: in the appropriate way
-            fprintf(file, "%s", temp);
+
+            char* token;
+            token = (char *)malloc(100 * sizeof(char));
+            memset(token, 0, sizeof(token));
+            token = strtok(temp, "\n");
+
+            time_t now = time(NULL);
+            struct tm *timeinfo = localtime(&now);
+            char time_str[20];
+            strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M", timeinfo);
+
+            while (token != NULL)
+            {
+                fprintf(file, "%s\n", token);
+                if (strncmp(token, "Subject: ",9) == 0)
+                {
+                    // If the line starts with "Subject:", print the additional line
+                    fprintf(file, "Received: %s\n", time_str);
+                }
+                token = strtok(NULL, "\n");
+            }
+
             fclose(file);
 
-           
-
-           
-           
-           
-           
-           
-           
-           
-           
             // For Command QUIT
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
