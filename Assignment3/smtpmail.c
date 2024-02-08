@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
             // for command HELO
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-            printf("C: %s\n", buf);
+            //printf("C: %s\n", buf);
 
             char domain_name[100];
             gethostname(domain_name, sizeof(domain_name));
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
             // for command MAIL FROM:
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-            printf("C: %s\n", buf);
+           // printf("C: %s\n", buf);
 
             char *ptr = strstr(buf, "MAIL FROM:");
             if (ptr != NULL)
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
             // for command RCPT TO:
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-            printf("C: %s\n", buf);
+            //printf("C: %s\n", buf);
 
             sscanf(buf, "RCPT TO: %100[^@]@%100[^\n]%s", username, extra, extra);
 
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
             // for command DATA
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
-            printf("C: %s\n", buf);
+           // printf("C: %s\n", buf);
 
             // copy 354 Start mail input; end with <CRLF>.<CRLF> to response
             sprintf(response, "354 Enter mail, end with \".\" on a line by itself\r\n");
@@ -143,22 +143,20 @@ int main(int argc, char *argv[])
             FILE *file = fopen(filepath, "a");
             if (file == NULL)
             {
-                printf("Unable to open mailbox file\n");
+                printf("Unable to open mailbox file\n");    
                 return 0;
             }
 
+            char temp[5000];
             while (1)
             {
                 /* We again initialize the buffer, and receive a
                    message from the client.
                 */
-                memset(buf, 0, sizeof(buf));
+               memset(buf, 0, sizeof(buf));
                 recv(newsockfd, buf, sizeof(buf), 0);
-                printf("C: %s\n", buf);
-                memset(response, 0, sizeof(response));
-                strcpy(response, "#");
-                send(newsockfd, response, strlen(response) + 1, 0);
-
+                strcat(temp, buf);
+    
                 // Get current time
                 time_t now = time(NULL);
                 struct tm *timeinfo = localtime(&now);
@@ -167,19 +165,19 @@ int main(int argc, char *argv[])
 
                 // Append message to mailbox file line by line
                 
-                if (strncmp(buf, "Subject:", 8) == 0)
-                {
-                    fprintf(file, "%s\n", buf);
-                    fprintf(file, "Received: %s\n", time_str);
-                }
-                else
-                {
-                    fprintf(file, "%s\n", buf);
-                }
+                // if (strncmp(buf, "Subject:", 8) == 0)
+                // {
+                //     fprintf(file, "%s\n", buf);
+                //     fprintf(file, "Received: %s\n", time_str);
+                // }
+                // else
+                // {
+                //     fprintf(file, "%s\n", buf);
+                // }
 
-                if (strcmp(buf, ".") == 0)
+                if (temp[strlen(temp) - 3] == '.' && temp[strlen(temp) - 2] == '\r' && temp[strlen(temp) - 1] == '\n' && temp[strlen(temp) - 4] == '\n')
                 {
-                    fclose(file);
+                    //fclose(file);
                     sprintf(response, "250 OK Message accepted for delivery\r\n");
                     send(newsockfd, response, strlen(response) + 1, 0);
                     break;
@@ -187,8 +185,20 @@ int main(int argc, char *argv[])
                 
                 
             }
+            //print the content of temp into the mymailbox file and handle the case of Subject: and Received: in the appropriate way
+            fprintf(file, "%s", temp);
+            fclose(file);
+
            
 
+           
+           
+           
+           
+           
+           
+           
+           
             // For Command QUIT
             memset(buf, 0, sizeof(buf));
             recv(newsockfd, buf, sizeof(buf), 0);
