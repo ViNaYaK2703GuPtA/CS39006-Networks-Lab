@@ -3,6 +3,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <sys/shm.h>
+#include <time.h>
 
 #define SOCK_MTP 3
 
@@ -35,10 +43,29 @@ struct Socket {
     rwnd receiver_window;
 };
 
-int errno;
-
 //A shared memory chunk SM containing the information about 25 MTP sockets
-struct SOCK_INFO SM[25];
+struct Socket SM[25];
+
+void wait_sem(int sem_id, int sem_num) {
+    struct sembuf sops;
+    sops.sem_num = sem_num;
+    sops.sem_op = -1;
+    sops.sem_flg = 0;
+    semop(sem_id, &sops, 1);
+}
+
+// Function to signal a semaphore
+void signal_sem(int sem_id, int sem_num) {
+    struct sembuf sops;
+    sops.sem_num = sem_num;
+    sops.sem_op = 1;
+    sops.sem_flg = 0;
+    semop(sem_id, &sops, 1);
+}
+
+int Sem1, Sem2;
+
+
 
 int m_socket(int domain, int type, int protocol);
 int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport);
