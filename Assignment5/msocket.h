@@ -15,10 +15,10 @@
 #define SOCK_MTP 3
 
 struct SOCK_INFO {
-    int sock_id = 0;
-    int errno = 0;
-    int port = 0;
-    char *ip = NULL;
+    int sock_id;
+    int err_no;
+    int port ;
+    char *ip ;
 };
 
 typedef struct swnd {
@@ -32,7 +32,7 @@ typedef struct rwnd {
 } rwnd;
 
 struct Socket {
-    int free = 0;
+    int free ;
     int pid;
     int sock_id;
     char *destip;
@@ -45,6 +45,7 @@ struct Socket {
 
 //A shared memory chunk SM containing the information about 25 MTP sockets
 struct Socket SM[25];
+struct SOCK_INFO Sinfo;
 
 void wait_sem(int sem_id, int sem_num) {
     struct sembuf sops;
