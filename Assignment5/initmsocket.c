@@ -8,48 +8,49 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
-#include <sys/sem.h>
+#include <semaphore.h>
 #include <sys/shm.h>
 #include <pthread.h>
 #include <sys/select.h>
+#include "msocket.h"
 
-int Sem1, Sem2, sem_mtx;
+int  sem_mtx;
 
 // create a shared memory chunk SM containing the information about 25 MTP sockets(using shmget)
-struct SOCK_INFO
-{
-    int sock_id;
-    int err_no;
-    int port;
-    char *ip;
-};
+// struct SOCK_INFO
+// {
+//     int sock_id;
+//     int err_no;
+//     int port;
+//     char *ip;
+// };
 
-typedef struct swnd
-{
-    int seq_number[5];
-    int window_size;
-    time_t send_time;
-} swnd;
+// typedef struct swnd
+// {
+//     int seq_number[5];
+//     int window_size;
+//     time_t send_time;
+// } swnd;
 
-typedef struct rwnd
-{
-    int seq_number[5];
-    int window_size;
-    time_t recv_time;
-} rwnd;
+// typedef struct rwnd
+// {
+//     int seq_number[5];
+//     int window_size;
+//     time_t recv_time;
+// } rwnd;
 
-struct Socket
-{
-    int free;
-    int pid;
-    int sock_id;
-    char *destip;
-    int destport;
-    char *sendbuf[10];
-    char *recvbuf[5];
-    swnd sender_window;
-    rwnd receiver_window;
-};
+// struct Socket
+// {
+//     int free;
+//     int pid;
+//     int sock_id;
+//     char *destip;
+//     int destport;
+//     char *sendbuf[10];
+//     char *recvbuf[5];
+//     swnd sender_window;
+//     rwnd receiver_window;
+// };
 
 #define MAX_SOCKETS 25
 
@@ -97,7 +98,7 @@ void *R(void *arg)
     // Create a file descriptor set to hold the UDP sockets
     fd_set readfds;
     int maxfd = 0;
-    int i;
+    //int i;
 
     // Initialize the file descriptor set
     FD_ZERO(&readfds);
@@ -431,6 +432,8 @@ void *G(void *arg)
 
 int main()
 {
+
+
     key_t key;
     key = 2708;
     // create a shared memory segment
@@ -485,10 +488,12 @@ int main()
     }
 
     key_t semkeyA = ftok(".", 'A');
+    int Sem1;
     Sem1 = semget(semkeyA, 1, IPC_CREAT | 0666);
     semctl(Sem1, 0, SETVAL, 0);
 
     key_t semkeyB = ftok(".", 'B');
+    int Sem2;
     Sem2 = semget(semkeyB, 1, IPC_CREAT | 0666);
     semctl(Sem2, 0, SETVAL, 0);
 

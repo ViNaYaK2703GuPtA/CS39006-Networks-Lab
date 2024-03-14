@@ -45,26 +45,9 @@ struct Socket {
     rwnd receiver_window;
 };
 
-//A shared memory chunk SM containing the information about 25 MTP sockets
 
-void wait_sem(int sem_id, int sem_num) {
-    struct sembuf sops;
-    sops.sem_num = sem_num;
-    sops.sem_op = -1;
-    sops.sem_flg = 0;
-    semop(sem_id, &sops, 1);
-}
 
-// Function to signal a semaphore
-void signal_sem(int sem_id, int sem_num) {
-    struct sembuf sops;
-    sops.sem_num = sem_num;
-    sops.sem_op = 1;
-    sops.sem_flg = 0;
-    semop(sem_id, &sops, 1);
-}
 
-int Sem1, Sem2;
 
 
 

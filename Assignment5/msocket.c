@@ -10,9 +10,29 @@
 
 #define MAX_SOCKETS 25
 
+//A shared memory chunk SM containing the information about 25 MTP sockets
+
+void wait_sem(int sem_id, int sem_num) {
+    struct sembuf sops;
+    sops.sem_num = sem_num;
+    sops.sem_op = -1;
+    sops.sem_flg = 0;
+    semop(sem_id, &sops, 1);
+}
+
+// Function to signal a semaphore
+void signal_sem(int sem_id, int sem_num) {
+    struct sembuf sops;
+    sops.sem_num = sem_num;
+    sops.sem_op = 1;
+    sops.sem_flg = 0;
+    semop(sem_id, &sops, 1);
+}
 
 int m_socket(int domain, int type, int protocol)
 {
+
+
     if (type != SOCK_MTP)
     {
         fprintf(stderr, "Invalid socket type\n");
@@ -41,7 +61,10 @@ int m_socket(int domain, int type, int protocol)
         }
     }
 
+     
+
     key_t semkeyA = ftok(".", 'A');
+    int Sem1;
     Sem1 = semget(semkeyA, 1, IPC_CREAT | 0666);
     semctl(Sem1, 0, SETVAL, 0);
     // Signal on Sem1
@@ -49,6 +72,7 @@ int m_socket(int domain, int type, int protocol)
 
     // Wait on Sem2
     key_t semkeyB = ftok(".", 'B');
+    int Sem2;
     Sem2 = semget(semkeyB, 1, IPC_CREAT | 0666);
     semctl(Sem2, 0, SETVAL, 0);
     wait_sem(Sem2, 0);
@@ -101,6 +125,7 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
     
 
     key_t semkeyA = ftok(".", 'A');
+    int Sem1;
     Sem1 = semget(semkeyA, 1, IPC_CREAT | 0666);
     semctl(Sem1, 0, SETVAL, 0);
     // Signal on Sem1
@@ -108,6 +133,7 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
 
     // Wait on Sem2
     key_t semkeyB = ftok(".", 'B');
+    int Sem2;
     Sem2 = semget(semkeyB, 1, IPC_CREAT | 0666);
     semctl(Sem2, 0, SETVAL, 0);
     wait_sem(Sem2, 0);
