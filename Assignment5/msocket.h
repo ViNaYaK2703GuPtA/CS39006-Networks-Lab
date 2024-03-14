@@ -24,11 +24,13 @@ struct SOCK_INFO {
 typedef struct swnd {
         int seq_number[5];
         int window_size;
+        time_t send_time;
 } swnd;
 
 typedef struct rwnd {
         int seq_number[5];
         int window_size;
+        time_t recv_time;
 } rwnd;
 
 struct Socket {
@@ -44,8 +46,6 @@ struct Socket {
 };
 
 //A shared memory chunk SM containing the information about 25 MTP sockets
-struct Socket SM[25];
-struct SOCK_INFO Sinfo;
 
 void wait_sem(int sem_id, int sem_num) {
     struct sembuf sops;

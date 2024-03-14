@@ -8,6 +8,9 @@
 #include <arpa/inet.h>
 #include <errno.h>
 
+#define MAX_SOCKETS 25
+
+
 int m_socket(int domain, int type, int protocol)
 {
     if (type != SOCK_MTP)
@@ -16,17 +19,21 @@ int m_socket(int domain, int type, int protocol)
         // errno = 1;
         exit(1);
     }
-    int sock_id = socket(domain, SOCK_DGRAM, protocol);
-    if (sock_id < 0)
-    {
-        perror("socket");
-        exit(1);
-    }
+    
 
     int flag = 0;
     int index = 0;
+
+    key_t key1;
+    key1 = 827;
+
+    int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
+    struct Socket *SM;
+    SM = (struct Socket *)shmat(shmid1, NULL, 0);
+
     for (index = 0; index < 25; index++)
     {
+        
         if (SM[index].free == 0)
         {
             flag = 1;
@@ -52,27 +59,28 @@ int m_socket(int domain, int type, int protocol)
     }
     else
     {
-        SM[index].free = 1;
-        SM[index].sock_id = sock_id;
-        SM[index].pid = getpid();
+        return SM[index].sock_id;
     }
 
-    return sock_id;
+    
 }
 
 int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
 {
 
-    int err;
-    struct sockaddr_in servaddr;
-    int sockfd = sock_id;
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(srcport);
+    
 
     // running  a for loop to find the actual udp socket id from the SM Table
+    key_t key1;
+    key1 = 827;
+
+    int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
+    struct Socket *SM;
+    SM = (struct Socket *)shmat(shmid1, NULL, 0);
     int index = 0;
     for (index = 0; index < 25; index++)
     {
+        
         if (SM[index].sock_id == sock_id)
         {
             break;
@@ -80,23 +88,17 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
     }
 
     // Put the UDP socket ID, IP, and port in SOCK_INFO table.
-    Sinfo.sock_id = sock_id;
-    strcpy(Sinfo.ip, destip);
-    Sinfo.port = destport;
+    key_t key;
+    key = 2708;
+    // create a shared memory segment
+    int shmid = shmget(key, sizeof(struct SOCK_INFO), IPC_CREAT | 0777);
+    struct SOCK_INFO *Sinfo = (struct SOCK_INFO *)shmat(shmid, NULL, 0);
 
-    err = inet_aton(srcip, &servaddr.sin_addr);
-    if (err == 0)
-    {
-        printf("Error in ip-conversion\n");
-        exit(EXIT_FAILURE);
-    }
+    Sinfo->sock_id = sock_id;
+    strcpy(Sinfo->ip, destip);
+    Sinfo->port = destport;
 
-    if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
-    {
-        errno = EADDRINUSE;    /// doubt
-        perror("bind");
-        exit(1);
-    }
+    
 
     key_t semkeyA = ftok(".", 'A');
     Sem1 = semget(semkeyA, 1, IPC_CREAT | 0666);
@@ -110,21 +112,21 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
     semctl(Sem2, 0, SETVAL, 0);
     wait_sem(Sem2, 0);
 
-    if (Sinfo.sock_id == -1)
+    if (Sinfo->sock_id == -1)
     {
-        errno = Sinfo.err_no;
-        Sinfo.sock_id = 0;
-        memset(Sinfo.ip, 0, sizeof(Sinfo.ip));
-        Sinfo.port = 0;
-        Sinfo.err_no = 0;
+        errno = Sinfo->err_no;
+        Sinfo->sock_id = 0;
+        memset(Sinfo->ip, 0, sizeof(Sinfo->ip));
+        Sinfo->port = 0;
+        Sinfo->err_no = 0;
         return -1;
     }
     else
     {
-        Sinfo.sock_id = 0;
-        memset(Sinfo.ip, 0, sizeof(Sinfo.ip));
-        Sinfo.port = 0;
-        Sinfo.err_no = 0;
+        Sinfo->sock_id = 0;
+        memset(Sinfo->ip, 0, sizeof(Sinfo->ip));
+        Sinfo->port = 0;
+        Sinfo->err_no = 0;
 
         //UPDATING THE SM TABLE
         strcpy(SM[index].destip, destip);
@@ -138,6 +140,11 @@ int m_sendto(int sock_id, char *buf, size_t len, char *destip, int destport)
 {
     int sockfd = sock_id;
     int index = 0;
+    key_t key1;
+    key1 = 827;
+    int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
+    struct Socket *SM;
+    SM = (struct Socket *)shmat(shmid1, NULL, 0);
     for (index = 0; index < 25; index++)
     {
         if (SM[index].sock_id == sock_id)
@@ -148,7 +155,7 @@ int m_sendto(int sock_id, char *buf, size_t len, char *destip, int destport)
 
     if(strcmp(SM[index].destip, destip) != 0 || SM[index].destport != destport)
     {
-        errno = ENOTBLK;  //check
+        errno = ENOTCONN;  
         return -1;
     }
 
@@ -176,6 +183,12 @@ int m_recvfrom(int sock_id, char *buf, size_t len, char *srcip, int srcport)
 {
     int sockfd = sock_id;
     int index = 0;
+    key_t key1;
+    key1 = 827;
+    int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
+    struct Socket *SM;
+    SM = (struct Socket *)shmat(shmid1, NULL, 0);
+    
     for (index = 0; index < 25; index++)
     {
         if (SM[index].sock_id == sock_id)
@@ -207,6 +220,12 @@ int m_close(int sock_id)
 {
     int sockfd = sock_id;
     int index = 0;
+    key_t key1;
+    key1 = 827;
+    int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
+    struct Socket *SM;
+    SM = (struct Socket *)shmat(shmid1, NULL, 0);
+    
     for (index = 0; index < 25; index++)
     {
         if (SM[index].sock_id == sock_id)
