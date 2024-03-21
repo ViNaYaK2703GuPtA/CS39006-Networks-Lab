@@ -38,7 +38,6 @@ void *R(void *arg)
     }
 
     struct Socket *SM;
-    int i;
     key_t key1;
     key1 = ftok(".", 'a');
 
@@ -55,12 +54,7 @@ void *R(void *arg)
         // Initialize the file descriptor set
         FD_ZERO(&readfds);
 
-        // Set the timeout for select() to NULL for now
-        struct timeval timeout;
-        timeout.tv_sec = 10; // check
-        timeout.tv_usec = 0;
-
-        for(i = 0; i < MAX_SOCKETS; i++)
+        for(int i = 0; i < MAX_SOCKETS; i++)
         {
             printf("%d\n", SM[i].free);
             if(SM[i].free == 1)
@@ -74,6 +68,14 @@ void *R(void *arg)
             }
         }
 
+        int ns = -1;
+        // Set the timeout for select() to NULL for now
+        struct timeval timeout;
+        timeout.tv_sec = 10; // check
+        timeout.tv_usec = 0;
+
+        
+
         // Call select() to check for incoming messages
         int activity = select(maxfd + 1, &readfds, NULL, NULL, &timeout);
         if (activity == -1)
@@ -85,7 +87,7 @@ void *R(void *arg)
         if (activity == 0)
         {
             // on timeout check whether a new MTP socket has been created and include it in the read/write set accordingly
-            for (i = 0; i < MAX_SOCKETS; i++)
+            for (int i = 0; i < MAX_SOCKETS; i++)
             {
                 if (SM[i].free == 1)
                 {
@@ -98,9 +100,71 @@ void *R(void *arg)
                 }
             }
         }
+        else{
+            for(int i=0; i<MAX_SOCKETS; i++){
+                
+                if(SM[i].free == 1){
+                    // receive
+                    printf("Receiving on socket : %d, and MTP socket: \n", SM[i].sock_id, i);
+                    struct sockaddr_in dest_addr;
+                    socklen_t len = sizeof(dest_addr);
+                    char buffer[1024];
+                    int n = recvfrom(SM[i].sock_id, buffer, 1024, 0, (struct sockaddr*)&dest_addr, &len);
+                    
+                    if(n == -1){
+                        if(errno == EAGAIN || errno == EWOULDBLOCK){
+                            continue;
+                        }
+                        else{
+                            perror("recvfrom() failed");
+                            exit(1);
+                        }
+                    }
+                    else{
+                        // SM[i].recv_buffer_empty[SM[i].rwnd.size] = 0;
+                        // SM[i].rwnd.sequence_numbers[SM[i].rwnd.size] = SM[i].rwnd.size;
+                        // SM[i].rwnd.size++;
+
+                        // Remove MTP header code left
+                        // code goes here  
+                    
+                        int seq_no = -1;
+                        // printing received message
+                        printf("recv: %s\n", buffer);
+
+                        for(int j=0; j<5; j++){
+                            if(SM[i].recvbuf_size[j] == 1){
+                                ns = 0;
+                                SM[i].recvbuf_size[j] = 0;
+                                strcpy(SM[i].recvbuf_size[j], buffer);
+                                if(SM[i].receiver_window.size == 5){
+                                    nospace = 1;
+                                    break;
+                                }
+                                seq_no = j;
+                                latest_seq_no = j;
+                                SM[i].rwnd.size++;
+                                break;
+                            }
+                        }
+
+                        if(nospace == -1) nospace = 1;
+                        else{
+                            // there was space in the buffer and message was received
+                            // send ACK
+                            char ACK[50];
+                            sprintf(ACK, "ACK %d, rwnd size = %d", seq_no, SM[i].rwnd.size);
+                            sendto(SM[i].udp_sockfd, ACK, strlen(ACK), MSG_DONTWAIT, (struct sockaddr*)&other_addr, len);
+                        }
+
+                    }
+
+                }
+            }
+        }
 
         // Check if there is any incoming message on any of the UDP sockets
-        for (i = 0; i < MAX_SOCKETS; i++)
+        for (int i = 0; i < MAX_SOCKETS; i++)
         {
             if (FD_ISSET(SM[i].sock_id, &readfds))
             {
