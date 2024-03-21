@@ -8,3 +8,4 @@ lib :
 clean:
 	rm -f *.o *.a
 	rm -f u1 u2 initm
+	rm -f received_file.txt

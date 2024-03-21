@@ -13,11 +13,11 @@
 
 //A shared memory chunk SM containing the information about 25 MTP sockets
 
-void wait_sem(int sem_id, int sem_num) {
+void wait_sem(int sem_id) {
     //printf("Init process waiting\n");
 
     struct sembuf sops;
-    sops.sem_num = sem_num;
+    sops.sem_num = 0;
     sops.sem_op = -1;
     sops.sem_flg = 0;
     semop(sem_id, &sops, 1);
@@ -25,13 +25,14 @@ void wait_sem(int sem_id, int sem_num) {
 }
 
 // Function to signal a semaphore
-void signal_sem(int sem_id, int sem_num) {
+void signal_sem(int sem_id) {
 
     struct sembuf sops;
-    sops.sem_num = sem_num;
+    sops.sem_num = 0;
     sops.sem_op = 1;
     sops.sem_flg = 0;   
     semop(sem_id, &sops, 1);
+    printf("Init process signaling\n");
 }
 
 int m_socket(int domain, int type, int protocol)
@@ -69,29 +70,20 @@ int m_socket(int domain, int type, int protocol)
         printf("index\n");
         if (SM[index].free == 0)
         {
+            printf("%d\n", index);
+            SM[index].free = 1;
             flag = 1;
             break;
         }
     }
-
-    if (flag == 0)
-    {
-        errno = ENOBUFS;
-        return -1;
-    }
-    printf("ghf");
-    SM[index].free = 1;
-    SM[index].pid = getpid();
-    SM[index].sock_id = Sinfo->sock_id; 
-    SM[index].destport = 0;
-
+    
     key_t semkeyA = ftok(".", 'A');
     int Sem1;
     Sem1 = semget(semkeyA, 1, IPC_CREAT | 0777);
     //semctl(Sem1, 0, SETVAL, 0);
     // Signal on Sem1
     printf("gcjcjgjgcf\n");
-    signal_sem(Sem1, 0);
+    signal_sem(Sem1);
 
     // Wait on Sem2
     key_t semkeyB = ftok(".", 'B');
@@ -101,7 +93,7 @@ int m_socket(int domain, int type, int protocol)
 
     printf("msocket called\n");
 
-    wait_sem(Sem2, 0);
+    wait_sem(Sem2);
     printf("msocket exiting\n");    
     if (flag == 0)
     {
@@ -116,11 +108,8 @@ int m_socket(int domain, int type, int protocol)
     
 }
 
-int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
+int m_bind(int sockfd, char *srcip, int srcport, char *destip, int destport)
 {
-
-    
-
     // running  a for loop to find the actual udp socket id from the SM Table
     key_t key1;
     key1 = ftok(".",'a');
@@ -128,15 +117,7 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
     int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
     struct Socket *SM;
     SM = (struct Socket *)shmat(shmid1, NULL, 0);
-    int index = 0;
-    for (index = 0; index < 25; index++)
-    {
-        
-        if (SM[index].sock_id == sock_id)
-        {
-            break;
-        }
-    }
+    
 
     // Put the UDP socket ID, IP, and port in SOCK_INFO table.
     key_t key;
@@ -158,19 +139,19 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
     key_t semkeyA = ftok(".", 'A');
     int Sem1;
     Sem1 = semget(semkeyA, 1, IPC_CREAT | 0777);
-    semctl(Sem1, 0, SETVAL, 0);
+    // semctl(Sem1, 0, SETVAL, 0);
     key_t semkeyB = ftok(".", 'B');
     int Sem2;
     Sem2 = semget(semkeyB, 1, IPC_CREAT | 0777);
     // semctl(Sem2, 0, SETVAL, 0);
     // Signal on Sem1
-    signal_sem(Sem1, 0);
+    signal_sem(Sem1);
     printf("mbind signal\n");
 
     // Wait on Sem2
     
     
-    wait_sem(Sem2, 0);
+    wait_sem(Sem2);
     printf("mbind wait\n");
 
     if (Sinfo->sock_id == -1)
@@ -191,46 +172,50 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport)
 
         //UPDATING THE SM TABLE
         //SM[index].destip = (char *)malloc(16 * sizeof(char));
-        strcpy(SM[index].destip, destip);
-        SM[index].destport = destport;
+        strcpy(SM[sockfd].destip, destip);
+        SM[sockfd].destport = destport;
         return 0;   
     }
     //printf("m_bind exiting\n");
 
 }
 
-int m_sendto(int sock_id, const void *buf, size_t len, int flags,const struct sockaddr *dest_addr, socklen_t dest_len)
+int m_sendto(int sockfd, const void *buf, size_t len, int flags,const struct sockaddr *dest_addr, socklen_t dest_len)
 {
-    int sockfd = sock_id;
-    int index = 0;
+    
+    int index = sockfd;
     key_t key1;
     key1 = ftok(".",'a');
     int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
     struct Socket *SM;
     SM = (struct Socket *)shmat(shmid1, NULL, 0);
-    for (index = 0; index < 25; index++)
-    {
-        if (SM[index].sock_id == sock_id)
-        {
-            break;
-        }
-    }
+    
     struct sockaddr_in *dest = (struct sockaddr_in *)dest_addr;
 
-    if(strcmp(SM[index].destip, inet_ntoa((dest->sin_addr)) != 0 || SM[index].destport != ntohs(dest->sin_port)))
+    printf("m_sendto called\n");
+
+    printf("%s\n", inet_ntoa((dest->sin_addr)));
+    printf("%s\n", SM[index].destip);
+    printf("%d\n", ntohs(dest->sin_port));
+    printf("%d\n", SM[index].destport);
+    char *temp = (char *)malloc(17 * sizeof(char));
+    strcpy(temp, SM[index].destip);
+
+    if(strcmp(temp,inet_ntoa((dest->sin_addr))) || SM[index].destport != ntohs(dest->sin_port))
     {
-        // errno = ENOTCONN;  
-        errno = EDESTADDRREQ;
+        errno = ENOTCONN;          
         return -1;
     }
-
+    printf("m_sendto called\n");
     //check if there is space in the send buffer
     int i = 0;
     char *buffer = (char *)buf;
+    printf("index = %d\n", index);
     for (i = 0; i < 10; i++)
     {
-        if (SM[index].sendbuf[i] == NULL)
-        {            
+        if (strcmp(SM[index].sendbuf[i], "") == 0)
+        {   
+            printf("m_sendto called in the loop\n");    
             strcpy(SM[index].sendbuf[i], buffer);
             SM[index].sender_window.window_size++;
             break;
@@ -241,29 +226,23 @@ int m_sendto(int sock_id, const void *buf, size_t len, int flags,const struct so
         errno = ENOBUFS;
         return -1;
     }
+    printf("%s\n", SM[index].sendbuf[i]);
     return 0;
 }
 
 
 
-int m_recvfrom(int sock_id, void  *restrict buf, size_t len, int flags, struct sockaddr *restrict address, socklen_t *restrict address_len)
+int m_recvfrom(int sockfd, void  *restrict buf, size_t len, int flags, struct sockaddr *restrict address, socklen_t *restrict address_len)
 {
-    int sockfd = sock_id;
-    int index = 0;
+    
+    int index = sockfd;
     key_t key1;
     key1 = ftok(".",'a');
     int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
     struct Socket *SM;
     SM = (struct Socket *)shmat(shmid1, NULL, 0);
     
-    for (index = 0; index < 25; index++)
-    {
-        if (SM[index].sock_id == sock_id)
-        {
-            break;
-        }
-    }
-
+    
     int i = 0;
     for (i = 0; i < 5; i++)
     {

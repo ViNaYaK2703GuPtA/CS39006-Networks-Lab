@@ -17,7 +17,7 @@ int main() {
         exit(EXIT_FAILURE);
     }
     printf("Socket created\n");
-
+    printf("%d\n", sockfd);
     // Bind to local IP and Port
     struct sockaddr_in local_addr;
     local_addr.sin_family = AF_INET;
@@ -27,6 +27,7 @@ int main() {
         perror("Binding failed");
         exit(EXIT_FAILURE);
     }
+    printf("Socket bound\n");
 
     // Set up remote IP and Port
     struct sockaddr_in remote_addr;
@@ -44,9 +45,7 @@ int main() {
     // Receive file content over the MTP socket
     char buffer[MAX_BUFFER_SIZE];
     ssize_t bytes_received;
-    struct sockaddr_in dest_addr;
-    socklen_t dest_len = sizeof(dest_addr);
-    while ((bytes_received = m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &dest_addr, &dest_len)) > 0) {
+    while ((bytes_received = m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, &remote_addr)) > 0) {
         if (fwrite(buffer, 1, bytes_received, file) != bytes_received) {
             perror("File writing failed");
             exit(EXIT_FAILURE);

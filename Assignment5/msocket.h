@@ -1,3 +1,6 @@
+#ifndef MSOCKET_H
+#define MSOCKET_H
+
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -23,7 +26,7 @@ struct SOCK_INFO {
 };
 
 typedef struct swnd {
-        int seq_number[5];
+        int seq_number[10];
         int window_size;
         time_t send_time;
 } swnd;
@@ -40,16 +43,14 @@ struct Socket {
     int sock_id;
     char destip[16];
     int destport;
-    char sendbuf[25][10];
-    char recvbuf[25][5];  
+    char sendbuf[10][100];
+    int sendbuf_size[10];
+    int notyetunack[10];
+    char recvbuf[5][100]; 
+    int recvbuf_size[5]; 
     swnd sender_window;
     rwnd receiver_window;
 };
-
-
-
-
-
 
 
 int m_socket(int domain, int type, int protocol);
@@ -57,6 +58,7 @@ int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport);
 int m_sendto(int sock_id, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
 int m_recvfrom(int sock_id, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
 int m_close(int sock_id);
-void wait_sem(int sem_id, int sem_num);
-void signal_sem(int sem_id, int sem_num);
+void wait_sem(int sem_id);
+void signal_sem(int sem_id);
 
+#endif 
