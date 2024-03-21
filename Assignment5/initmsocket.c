@@ -9,71 +9,21 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <semaphore.h>
+#include <sys/sem.h>
 #include <sys/shm.h>
 #include <pthread.h>
 #include <sys/select.h>
 #include "msocket.h"
 
-int  sem_mtx;
-
-// create a shared memory chunk SM containing the information about 25 MTP sockets(using shmget)
-// struct SOCK_INFO
-// {
-//     int sock_id;
-//     int err_no;
-//     int port;
-//     char *ip;
-// };
-
-// typedef struct swnd
-// {
-//     int seq_number[5];
-//     int window_size;
-//     time_t send_time;
-// } swnd;
-
-// typedef struct rwnd
-// {
-//     int seq_number[5];
-//     int window_size;
-//     time_t recv_time;
-// } rwnd;
-
-// struct Socket
-// {
-//     int free;
-//     int pid;
-//     int sock_id;
-//     char *destip;
-//     int destport;
-//     char *sendbuf[10];
-//     char *recvbuf[5];
-//     swnd sender_window;
-//     rwnd receiver_window;
-// };
+int sem_mtx;
 
 #define MAX_SOCKETS 25
 
-/*The  thread  R  behaves  in  the  following  manner.  It  waits  for  a  message  to  come  in  a
-recvfrom() call from any of the UDP sockets (you need to use select() to keep on checking
-whether there is any incoming message on any of the UDP sockets, on timeout check whether
-a new MTP socket has been created and include it in the read/write set accordingly). When it
-receives a message, if it is a data message, it stores it in the receiver-side message buffer for
-the  corresponding  MTP  socket  (by  searching  SM  with  the  IP/Port),  and  sends  an  ACK
-message  to  the  sender.  In  addition  it  also  sets  a  flag  nospace  if  the  available  space  at  the
-receive  buffer  is  zero.  On  a  timeout  over  select(),  it  additionally  checks  whether  the  flag
-nospace was set but now there is space available in the receive buffer. In that case, it sends
-a duplicate ACK message with the last acknowledged sequence number but with the updated
-rwnd size, and resets the flag (there might be a problem here – try to find it out and resolve!).
-If  the  received  message  is  an  ACK  message  in  response  to  a  previously  sent  message,  it
-updates  the  swnd  and  removes  the  message  from  the  sender-side  message  buffer  for  the
-corresponding  MTP  socket.  If  the  received  message  is  a  duplicate  ACK  message,  it  just
-updates the swnd size. */
 void *R(void *arg)
 {
     // Get the shared memory segment containing socket information
-    key_t key = 2708;
-    int shmid = shmget(key, sizeof(struct SOCK_INFO), 0);
+    key_t key = ftok(".", 'b');
+    int shmid = shmget(key, sizeof(struct SOCK_INFO), 0777|IPC_CREAT);
     if (shmid == -1)
     {
         perror("shmget failed");
@@ -90,7 +40,7 @@ void *R(void *arg)
     struct Socket *SM;
     int i;
     key_t key1;
-    key1 = 827;
+    key1 = ftok(".", 'a');
 
     int shmid1 = shmget(key1, MAX_SOCKETS * sizeof(struct Socket), IPC_CREAT | 0777);
     SM = (struct Socket *)shmat(shmid1, NULL, 0);
@@ -98,7 +48,7 @@ void *R(void *arg)
     // Create a file descriptor set to hold the UDP sockets
     fd_set readfds;
     int maxfd = 0;
-    //int i;
+    // int i;
 
     // Initialize the file descriptor set
     FD_ZERO(&readfds);
@@ -121,6 +71,7 @@ void *R(void *arg)
     timeout.tv_sec = 5; // check
     timeout.tv_usec = 0;
 
+    printf("\t\t\tReceiver process started\n");   
     // Loop to wait for incoming messages
     while (1)
     {
@@ -210,21 +161,12 @@ void *R(void *arg)
     return NULL;
 }
 
-/*The thread S behaves in the following manner. It sleeps for some time ( < T/2 ), and wakes
-up periodically. On waking up, it first checks whether the message timeout period (T) is over
-(by computing the time difference between the current time and the time when the messages
-within the window were sent last) for the messages sent over any of the active MTP sockets.
-If  yes,  it  retransmits  all  the  messages  within  the  current  swnd  for  that  MTP  socket.  It  then
-checks  the  current  swnd  for  each  of  the  MTP  sockets  and  determines  whether  there  is  a
-pending message from the sender-side message buffer that can be sent. If so, it sends that
-message through the UDP sendto() call for the corresponding UDP socket and updates the
-send timestamp.*/
 void *S(void *arg)
 {
 
     // Get the shared memory segment containing socket information
-    key_t key = 2708;
-    int shmid = shmget(key, sizeof(struct SOCK_INFO), 0);
+    key_t key = ftok(".", 'b');
+    int shmid = shmget(key, sizeof(struct SOCK_INFO), 0777|IPC_CREAT);
     if (shmid == -1)
     {
         perror("shmget failed");
@@ -241,11 +183,12 @@ void *S(void *arg)
     struct Socket *SM;
     int i;
     key_t key1;
-    key1 = 827;
+    key1 = ftok(".", 'a');
 
     int shmid1 = shmget(key1, MAX_SOCKETS * sizeof(struct Socket), IPC_CREAT | 0777);
     SM = (struct Socket *)shmat(shmid1, NULL, 0);
 
+    printf("\t\t\tSender process started\n");
     // Loop to sleep for some time and wake up periodically
     while (1)
     {
@@ -255,6 +198,7 @@ void *S(void *arg)
         // Get the current time for checking message timeout period
         struct timeval current_time;
         gettimeofday(&current_time, NULL);
+        printf("abs0\n");
 
         // Check whether the message timeout period (T) is over for messages sent over any active MTP sockets
         for (i = 0; i < MAX_SOCKETS; i++)
@@ -294,9 +238,13 @@ void *S(void *arg)
         }
 
         // Check the current swnd for each MTP socket
+        semctl(sem_mtx, 0, SETVAL, 1);
+
         for (i = 0; i < MAX_SOCKETS; i++)
         {
+            printf("\t\t\tGoing into wait stat\n");
             wait_sem(sem_mtx, 0);
+            printf("\t\t\tOut of wait stat\n");
             if (SM[i].free == 1)
             {
                 // Determine whether there is a pending message from the sender-side message buffer that can be sent
@@ -325,7 +273,7 @@ void *S(void *arg)
 
                             // Remove the sent message from the sender-side message buffer
                             free(SM[i].sendbuf[j]);
-                            SM[i].sendbuf[j] = NULL;
+                            memset(SM[i].sendbuf[j], 0, sizeof(SM[i].sendbuf[j]));
                             SM[i].sender_window.window_size--;
                             break; // Exit loop after sending one message
                         }
@@ -346,13 +294,10 @@ void *S(void *arg)
     return NULL;
 }
 
-/*The  init  process  should  also  start  a  garbage  collector  process  G  to  clean  up  the
-corresponding entry in the MTP socket if the corresponding process is killed and the
-socket has not been closed explicitly. */
 void *G(void *arg)
 {
     key_t key;
-    key = 2708;
+    key = ftok(".", 'b');
     // create a shared memory segment
     int shmid = shmget(key, sizeof(struct SOCK_INFO), IPC_CREAT | 0777);
     if (shmid == -1)
@@ -379,7 +324,7 @@ void *G(void *arg)
     struct Socket *SM;
     int i;
     key_t key1;
-    key1 = 827;
+    key1 = ftok(".", 'a');
 
     int shmid1 = shmget(key1, MAX_SOCKETS * sizeof(struct Socket), IPC_CREAT | 0777);
     SM = (struct Socket *)shmat(shmid1, NULL, 0);
@@ -413,7 +358,7 @@ void *G(void *arg)
                     SM[i].free = 0;
                     SM[i].pid = 0;
                     SM[i].sock_id = 0;
-                    SM[i].destip = NULL;
+                    memset(SM[i].destip, 0, sizeof(SM[i].destip));
                     SM[i].destport = 0;
                     memset(SM[i].sendbuf, 0, sizeof(SM[i].sendbuf));
                     memset(SM[i].recvbuf, 0, sizeof(SM[i].recvbuf));
@@ -423,7 +368,7 @@ void *G(void *arg)
                     SM[i].receiver_window.window_size = 0;
                 }
             }
-        }
+        } 
         signal_sem(sem_mtx, 0);
     }
 
@@ -433,11 +378,10 @@ void *G(void *arg)
 int main()
 {
 
-
     key_t key;
-    key = 2708;
+    key = ftok(".", 'b');
     // create a shared memory segment
-    int shmid = shmget(key, sizeof(struct SOCK_INFO), IPC_CREAT | 0777);
+    int shmid = shmget(key, sizeof(struct SOCK_INFO), 0777|IPC_CREAT);
     if (shmid == -1)
     {
         perror("shmget failed");
@@ -446,6 +390,7 @@ int main()
 
     // attach the shared memory segment
     struct SOCK_INFO *Sinfo = (struct SOCK_INFO *)shmat(shmid, NULL, 0);
+    
     if (Sinfo == (struct SOCK_INFO *)-1)
     {
         perror("shmat failed");
@@ -456,16 +401,20 @@ int main()
     Sinfo->sock_id = 0;
     Sinfo->err_no = 0;
     Sinfo->port = 0;
+    
+    printf("%d\n", Sinfo->sock_id);
     memset(Sinfo->ip, 0, sizeof(Sinfo->ip));
+    printf("%d\n", Sinfo->sock_id);
 
     // use the shared memory
     struct Socket *SM;
     int i;
     key_t key1;
-    key1 = 827;
+    key1 = ftok(".", 'a');
 
     int shmid1 = shmget(key1, MAX_SOCKETS * sizeof(struct Socket), IPC_CREAT | 0777);
     SM = (struct Socket *)shmat(shmid1, NULL, 0);
+    
     for (i = 0; i < MAX_SOCKETS; i++)
     {
         if (SM == (struct Socket *)-1)
@@ -477,38 +426,61 @@ int main()
         SM[i].free = 0;
         SM[i].pid = 0;
         SM[i].sock_id = 0;
-        SM[i].destip = NULL;
         SM[i].destport = 0;
+        //SM[i].destip = (char *)malloc(16);
+        
+        // for(int x = 0; x < 10; x++)
+        // {
+        //     SM[i].sendbuf[x] = (char *)malloc(1024);
+        // }
+        
+        // for(int x = 0; x < 5; x++)
+        // {
+        //     SM[i].recvbuf[x] = (char *)malloc(1024);
+        // }
+
+        memset(SM[i].destip, 0, sizeof(SM[i].destip));
         memset(SM[i].sendbuf, 0, sizeof(SM[i].sendbuf));
         memset(SM[i].recvbuf, 0, sizeof(SM[i].recvbuf));
+
+
         memset(&SM[i].sender_window.seq_number, 0, sizeof(SM[i].sender_window.seq_number));
         memset(&SM[i].receiver_window.seq_number, 0, sizeof(SM[i].receiver_window.seq_number));
         SM[i].sender_window.window_size = 0;
         SM[i].receiver_window.window_size = 0;
     }
 
+    
     key_t semkeyA = ftok(".", 'A');
     int Sem1;
-    Sem1 = semget(semkeyA, 1, IPC_CREAT | 0666);
+    Sem1 = semget(semkeyA, 1, IPC_CREAT | 0777);
     semctl(Sem1, 0, SETVAL, 0);
 
     key_t semkeyB = ftok(".", 'B');
     int Sem2;
-    Sem2 = semget(semkeyB, 1, IPC_CREAT | 0666);
+    Sem2 = semget(semkeyB, 1, IPC_CREAT | 0777);
     semctl(Sem2, 0, SETVAL, 0);
 
     // use the shared memory for the sockets
     pthread_t sender, receiver, g_collector;
-    pthread_create(&receiver, NULL, R, NULL);
-    pthread_create(&sender, NULL, S, NULL);
-    pthread_create(&g_collector, NULL, G, NULL);
+    // pthread_create(&receiver, NULL, R, NULL);
+    // pthread_create(&sender, NULL, S, NULL);
+    // pthread_create(&g_collector, NULL, G, NULL);
+
+    printf("Init process started\n");
+
+
 
     while (1)
     {
         wait_sem(Sem1, 0);
+        printf("%d\n", Sinfo->sock_id);
+        printf("%d\n", Sinfo->port);
+        
         // check SOCK_INFO whether all fields are 0
         if (Sinfo->sock_id == 0 && Sinfo->err_no == 0 && Sinfo->port == 0)
         {
+            printf("vg");
             int sock_id = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock_id < 0)
             {
@@ -543,6 +515,7 @@ int main()
                     SM[index].pid = getpid();
                 }
             }
+            printf("signal sent\n");
             signal_sem(Sem2, 0);
         }
         else if (Sinfo->sock_id != 0 && Sinfo->port != 0)
@@ -552,13 +525,16 @@ int main()
             int sockfd = Sinfo->sock_id;
             servaddr.sin_family = AF_INET;
             servaddr.sin_port = htons(Sinfo->port);
+    
             if (bind(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0)
             {
                 Sinfo->sock_id = -1;
                 Sinfo->err_no = errno;
             }
+            printf("signal sent\n");
             signal_sem(Sem2, 0);
         }
+        printf("vg");
     }
 
     // detach the shared memory segments

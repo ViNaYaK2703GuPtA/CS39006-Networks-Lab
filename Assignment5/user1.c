@@ -11,11 +11,14 @@
 
 int main() {
     // Create MTP socket
+    printf("Creating socket\n");
     int sockfd = m_socket(AF_INET, SOCK_MTP, 0);
+
     if (sockfd < 0) {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
+    printf("Socket created\n");
 
     // Bind to local IP and Port
     struct sockaddr_in local_addr;
@@ -26,6 +29,7 @@ int main() {
         perror("Binding failed");
         exit(EXIT_FAILURE);
     }
+    printf("Socket bound\n");
 
     // Set up remote IP and Port
     struct sockaddr_in remote_addr;
@@ -43,8 +47,12 @@ int main() {
     // Send file content over the MTP socket
     char buffer[MAX_BUFFER_SIZE];
     size_t bytes_read;
+    struct sockaddr_in dest_addr;
+    dest_addr.sin_family = AF_INET;
+    dest_addr.sin_port = htons(PORT2);
+    dest_addr.sin_addr.s_addr = inet_addr(IP2);
     while ((bytes_read = fread(buffer, 1, MAX_BUFFER_SIZE, file)) > 0) {
-        if (m_sendto(sockfd, buffer, bytes_read, IP2, PORT2) == -1) {
+        if (m_sendto(sockfd, buffer, bytes_read,0, (const struct sockaddr *) &dest_addr, PORT2) == -1) {
             perror("Sendto failed");
             exit(EXIT_FAILURE);
         }
