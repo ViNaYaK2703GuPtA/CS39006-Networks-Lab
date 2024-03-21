@@ -53,7 +53,7 @@ int main() {
     while (fgets(buffer, MAX_BUFFER_SIZE, file)) {
         printf("%s",buffer);
         printf("Sending %ld bytes\n", strlen(buffer));
-        if (m_sendto(sockfd, buffer, strlen(buffer ),0, (const struct sockaddr *) &remote_addr, PORT2) == -1) {
+        if (m_sendto(sockfd, buffer, strlen(buffer ),0, (const struct sockaddr *) &remote_addr, sizeof(remote_addr)) == -1) {
             perror("Sendto failed");
             exit(EXIT_FAILURE);
         }
@@ -61,7 +61,7 @@ int main() {
 
     // Close the file and socket
     fclose(file);
-    close(sockfd);
+   // close(sockfd);
 
     return 0;
 }

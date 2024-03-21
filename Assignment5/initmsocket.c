@@ -55,14 +55,8 @@ void *R(void *arg)
         // Initialize the file descriptor set
         FD_ZERO(&readfds);
 
-        // Set the timeout for select() to NULL for now
-        struct timeval timeout;
-        timeout.tv_sec = 10; // check
-        timeout.tv_usec = 0;
-
         for(i = 0; i < MAX_SOCKETS; i++)
         {
-            printf("%d\n", SM[i].free);
             if(SM[i].free == 1)
             {
                 printf("sock_id for FDSET: %d\n", SM[i].sock_id);
@@ -74,6 +68,13 @@ void *R(void *arg)
             }
         }
 
+        // Set the timeout for select() to NULL for now
+        struct timeval timeout;
+        timeout.tv_sec = 10; // check
+        timeout.tv_usec = 0;
+
+        
+
         // Call select() to check for incoming messages
         int activity = select(maxfd + 1, &readfds, NULL, NULL, &timeout);
         if (activity == -1)
@@ -82,27 +83,28 @@ void *R(void *arg)
             exit(1);
         }
 
-        if (activity == 0)
-        {
-            // on timeout check whether a new MTP socket has been created and include it in the read/write set accordingly
-            for (i = 0; i < MAX_SOCKETS; i++)
-            {
-                if (SM[i].free == 1)
-                {
-                    //printf("sock_id: %d\n", SM[i].sock_id);
-                    FD_SET(SM[i].sock_id, &readfds);
-                    if (SM[i].sock_id > maxfd)
-                    {
-                        maxfd = SM[i].sock_id;
-                    }
-                }
-            }
-        }
+        // if (activity == 0)
+        // {
+        //     // on timeout check whether a new MTP socket has been created and include it in the read/write set accordingly
+        //     for (i = 0; i < MAX_SOCKETS; i++)
+        //     {
+        //         if (SM[i].free == 1)
+        //         {
+        //             //printf("sock_id: %d\n", SM[i].sock_id);
+        //             FD_SET(SM[i].sock_id, &readfds);
+        //             if (SM[i].sock_id > maxfd)
+        //             {
+        //                 maxfd = SM[i].sock_id;
+        //             }
+        //         }
+        //     }
+        // }
 
         // Check if there is any incoming message on any of the UDP sockets
         for (i = 0; i < MAX_SOCKETS; i++)
         {
-            if (FD_ISSET(SM[i].sock_id, &readfds))
+            
+            if ( SM[i].free==1 )    // && FD_ISSET(SM[i].sock_id, &readfds)
             {
                 // Receive the message using recvfrom()
                 char buffer[1024];
@@ -118,11 +120,13 @@ void *R(void *arg)
                 }
                 // Store the message in the receiver-side message buffer
                 int j;
-                for (j = 0; j < 5; j++)
+                for (j = 0; j < 1; j++)  // change it to 5
                 {
-                    if (strcmp(SM[i].recvbuf[j], "") != 0)
+                    if (strcmp(SM[i].recvbuf[0], "") == 0)
                     {
+                        //printf("Received message in loop: %d\n", j);
                         strcpy(SM[i].recvbuf[j], buffer);
+                        printf("Received message in loop: %s\n", SM[i].recvbuf[j]);
                         break;
                     }
                     memset(buffer, 0, sizeof(buffer));
@@ -193,58 +197,59 @@ void *S(void *arg)
         // printf("abs0\n");
 
         // Check whether the message timeout period (T) is over for messages sent over any active MTP sockets
-        for (i = 0; i < MAX_SOCKETS; i++)
-        {
-            if (SM[i].free)
-            {
-                // Compute the time difference between the current time and the time when the messages within the window were sent last
-                time_t time_diff = current_time.tv_sec - SM[i].sender_window.send_time;
+        // for (i = 0; i < MAX_SOCKETS; i++)
+        // {
+        //     if (SM[i].free)
+        //     {
+        //         // Compute the time difference between the current time and the time when the messages within the window were sent last
+        //         time_t time_diff = current_time.tv_sec - SM[i].sender_window.send_time;
 
-                // If the timeout period (T) is over, retransmit all messages within the current swnd for that MTP socket
-                if (time_diff >= 5)
-                {
-                    int j;
-                    for (j = 0; j < 5; j++)
-                    {
-                        if (SM[i].sender_window.seq_number[j] != -1)
-                        {
-                            struct sockaddr_in destaddr;
-                            destaddr.sin_family = AF_INET;
-                            destaddr.sin_port = htons(SM[i].destport);
-                            int err = inet_aton(SM[i].destip, &destaddr.sin_addr);
+        //         // If the timeout period (T) is over, retransmit all messages within the current swnd for that MTP socket
+        //         if (time_diff >= 5)
+        //         {
+        //             int j;
+        //             for (j = 0; j < 5; j++)
+        //             {
+        //                 if (SM[i].sender_window.seq_number[j] != -1)
+        //                 {
+        //                     struct sockaddr_in destaddr;
+        //                     destaddr.sin_family = AF_INET;
+        //                     destaddr.sin_port = htons(SM[i].destport);
+        //                     int err = inet_aton(SM[i].destip, &destaddr.sin_addr);
 
-                            // Retransmit the message
-                            ssize_t send_len = sendto(SM[i].sock_id, SM[i].sendbuf[j], strlen(SM[i].sendbuf[j]), 0, (struct sockaddr *)&destaddr, sizeof(destaddr));
-                            if (send_len == -1)
-                            {
-                                perror("sendto failed 1");
-                                exit(1);
-                            }
-                        }
-                    }
-                    // Update the send timestamp
-                    gettimeofday(&current_time, NULL);
-                    SM[i].sender_window.send_time = current_time.tv_sec;
-                }
-            }
-        }
+        //                     // Retransmit the message
+                            
+        //                     ssize_t send_len = sendto(SM[i].sock_id, SM[i].sendbuf[j], strlen(SM[i].sendbuf[j]), 0, (struct sockaddr *)&destaddr, sizeof(destaddr));
+        //                     if (send_len == -1)
+        //                     {
+        //                         perror("sendto failed 1");
+        //                         exit(1);
+        //                     }
+        //                 }
+        //             }
+        //             // Update the send timestamp
+        //             gettimeofday(&current_time, NULL);
+        //             SM[i].sender_window.send_time = current_time.tv_sec;
+        //         }
+        //     }
+        // }
 
         // Check the current swnd for each MTP socket
 
         for (i = 0; i < MAX_SOCKETS; i++)
         {
             // printf("\t\t\tGoing into wait state\n");
-            wait_sem(sem_mtx);
+            //wait_sem(sem_mtx);
             // printf("\t\t\tOut of wait stat\n");
             if (SM[i].free == 1)
             {
-                // Determine whether there is a pending message from the sender-side message buffer that can be sent
+
                 if (SM[i].sender_window.window_size > 0)
                 {
                     int j;
                     for (j = 0; j < 10; j++)
                     {
-                        if (SM[i].sendbuf[j] != NULL)
+                        if (strcmp(SM[i].sendbuf[j], "") != 0)
                         {
                             struct sockaddr_in destaddr;
                             destaddr.sin_family = AF_INET;
@@ -253,6 +258,8 @@ void *S(void *arg)
 
                             // Send the pending message through the UDP sendto() call for the corresponding UDP socket
                             //printf("%d\n", SM[i].sock_id);
+                            printf("Sending message: %s\n", SM[i].sendbuf[j]);
+                            printf("Sending to: %s:%d\n", SM[i].destip, SM[i].destport);
                             ssize_t send_len = sendto(SM[i].sock_id, SM[i].sendbuf[j], strlen(SM[i].sendbuf[j]), 0, (struct sockaddr *)&destaddr, sizeof(destaddr));
                             if (send_len == -1)
                             {
@@ -272,7 +279,7 @@ void *S(void *arg)
                     }
                 }
             }
-            signal_sem(sem_mtx);
+            //signal_sem(sem_mtx);
         }
     }
 

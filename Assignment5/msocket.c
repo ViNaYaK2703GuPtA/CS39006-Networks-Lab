@@ -122,8 +122,8 @@ int m_bind(int sockfd, char *srcip, int srcport, char *destip, int destport)
 
    // Sinfo->ip = (char *)malloc(16 * sizeof(char));
 
-    strcpy(Sinfo->ip, destip);
-    Sinfo->port = destport;
+    strcpy(Sinfo->ip, srcip);
+    Sinfo->port = srcport;
     printf("%d %d\n", srcport, Sinfo->port);
     printf("%d\n", Sinfo->sock_id);
 
@@ -159,7 +159,7 @@ int m_bind(int sockfd, char *srcip, int srcport, char *destip, int destport)
         Sinfo->port = 0;
         Sinfo->err_no = 0;
 
-
+        
         strcpy(SM[sockfd].destip, destip);
         SM[sockfd].destport = destport;
         return 0;   
@@ -219,25 +219,26 @@ int m_recvfrom(int sockfd, void  *restrict buf, size_t len, int flags, struct so
     key_t key1;
     key1 = ftok(".",'a');
     int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
-    struct Socket *SM;
-    SM = (struct Socket *)shmat(shmid1, NULL, 0);
+    struct Socket *SM = (struct Socket *)shmat(shmid1, NULL, 0);;
+    // SM = (struct Socket *)shmat(shmid1, NULL, 0);
     
-    printf("m_recvfrom called\n");
+    //printf("m_recvfrom called\n");
     int i ;
-    char * buffer = (char *)buf;
-    for (i = 0; i < 5; i++)
+   char * buffer = (char *)buf;
+    for (i = 0; i < 1; i++)        //change it to 5
     {
-        printf("%s\n", SM[index].recvbuf[i]);
-        if (strcmp(SM[index].recvbuf[i], "") != 0)
+        // printf("%s\n", SM[index].recvbuf[i]);
+        char *temp = SM[index].recvbuf[i];
+        if (strcmp(temp, "") != 0)
         {
-            strcpy(buffer, SM[index].recvbuf[i]);
-            printf("%s\n", buffer); 
-            memset(SM[index].recvbuf[i], 0, sizeof(SM[index].recvbuf[i]));
+            // strcpy((char*)buf, SM[index].recvbuf[i]);
+            // printf("%s\n", (char*)buf); 
+            // memset(SM[index].recvbuf[i], 0, sizeof(SM[index].recvbuf[i]));
             break;
         }
     }
-    printf("bjjgg\n");
-    printf("%s\n", buffer);
+   // printf("bjjgg\n");
+    //printf("%s\n", buffer);
     if (i == 5)
     {
         errno = ENOMSG;
@@ -247,36 +248,36 @@ int m_recvfrom(int sockfd, void  *restrict buf, size_t len, int flags, struct so
 }
 
 
-int m_close(int sock_id)
-{
-    int sockfd = sock_id;
-    int index = 0;
-    key_t key1;
-    key1 = ftok(".",'a');
-    int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
-    struct Socket *SM;
-    SM = (struct Socket *)shmat(shmid1, NULL, 0);
+// int m_close(int sock_id)
+// {
+//     int sockfd = sock_id;
+//     int index = 0;
+//     key_t key1;
+//     key1 = ftok(".",'a');
+//     int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
+//     struct Socket *SM;
+//     SM = (struct Socket *)shmat(shmid1, NULL, 0);
     
-    for (index = 0; index < 25; index++)
-    {
-        if (SM[index].sock_id == sock_id)
-        {
-            break;
-        }
-    }
-    SM[index].free = 0;
-    SM[index].pid = 0;
-    SM[index].sock_id = 0;
-    memset(SM[index].destip, 0, sizeof(SM[index].destip));
-    SM[index].destport = 0;
-    int i = 0;
-    for (i = 0; i < 10; i++)
-    {
-        memset(SM[index].sendbuf[i], 0, sizeof(SM[index].sendbuf[i]));
-    }
-    for (i = 0; i < 5; i++)
-    {
-        memset(SM[index].recvbuf[i], 0, sizeof(SM[index].recvbuf[i]));
-    }
-    return close(sockfd);
-}
+//     for (index = 0; index < 25; index++)
+//     {
+//         if (SM[index].sock_id == sock_id)
+//         {
+//             break;
+//         }
+//     }
+//     SM[index].free = 0;
+//     SM[index].pid = 0;
+//     SM[index].sock_id = 0;
+//     memset(SM[index].destip, 0, sizeof(SM[index].destip));
+//     SM[index].destport = 0;
+//     int i = 0;
+//     for (i = 0; i < 10; i++)
+//     {
+//         memset(SM[index].sendbuf[i], 0, sizeof(SM[index].sendbuf[i]));
+//     }
+//     for (i = 0; i < 5; i++)
+//     {
+//         memset(SM[index].recvbuf[i], 0, sizeof(SM[index].recvbuf[i]));
+//     }
+//     return close(sockfd);
+// }
