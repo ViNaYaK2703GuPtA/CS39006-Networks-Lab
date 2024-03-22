@@ -44,8 +44,8 @@ struct Socket {
     char destip[16];
     int destport;
     char sendbuf[10][100];
-    int sendbuf_size[10];
-    int notyetunack[10];
+    int sendbuf_size[10];   //if 0 then empty else filled
+    int notyetack[10];
     char recvbuf[5][100]; 
     int recvbuf_size[5]; 
     swnd sender_window;

@@ -225,14 +225,14 @@ int m_recvfrom(int sockfd, void  *restrict buf, size_t len, int flags, struct so
     printf("m_recvfrom called\n");
     int i ;
     char * buffer = (char *)buf;
-    for (i = 0; i < 1; i++)        //change it to 5
+    for (i = 0; i < 5; i++)        //change it to 5
     {
         // printf("%s\n", SM[index].recvbuf[i]);
-        
+        //printf("String = %s", SM[index].recvbuf[i]);
         if (strcmp(SM[index].recvbuf[i], "") != 0)
         {
             strcpy((char*)buf, SM[index].recvbuf[i]);
-            printf("%s\n", (char*)buf); 
+            //printf("%s\n", (char*)buf); 
             memset(SM[index].recvbuf[i], 0, sizeof(SM[index].recvbuf[i]));
             break;
         }

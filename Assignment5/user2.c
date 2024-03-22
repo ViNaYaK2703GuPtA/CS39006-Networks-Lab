@@ -36,7 +36,7 @@ int main() {
     remote_addr.sin_addr.s_addr = inet_addr(IP1);
 
     // Open a new file to write received content
-    FILE *file = fopen("received_file.txt", "w");
+    FILE *file = fopen("received_file.txt", "a");
     if (file == NULL) {
         perror("File opening failed");
         exit(EXIT_FAILURE);
@@ -48,15 +48,27 @@ int main() {
     ssize_t bytes_received=-1;
 
     socklen_t len = sizeof(remote_addr);
-    while ((bytes_received = m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, &len))<=0){
-        sleep(3);
-        printf("%s\n",buffer);
-        printf("Received %ld bytes\n", bytes_received);
+    while (1){
+
+        bytes_received = m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, &len);
+
+        if(bytes_received>0)
+        {
+            printf("Received %ld bytes\n", bytes_received);
+            printf("%s\n",buffer);
+            
+            fprintf(file, "%s", buffer);
+            fflush(file);
+            
+            memset(buffer, 0, MAX_BUFFER_SIZE);
+            bytes_received=-1;
+        }
+
+        sleep(1);
+       // 
+        //printf("Received %ld bytes\n", bytes_received);
         
-        // if (fputs(buffer, file) != bytes_received) {
-        //     perror("File writing failed");
-        //     exit(EXIT_FAILURE);
-        // }
+        
     }
     //m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
     printf("Received %ld bytes\n", bytes_received);
