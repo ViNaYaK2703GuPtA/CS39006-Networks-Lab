@@ -45,7 +45,7 @@ struct Socket {
     int destport;
     char sendbuf[10][100];
     int sendbuf_size[10];
-    int notyetunack[10];
+    int notyetack[10];
     char recvbuf[5][100]; 
     int recvbuf_size[5]; 
     swnd sender_window;
@@ -54,10 +54,9 @@ struct Socket {
 
 
 int m_socket(int domain, int type, int protocol);
-int m_bind(int sock_id, char *srcip, int srcport, char *destip, int destport);
-int m_sendto(int sock_id, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
-int m_recvfrom(int sock_id, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
-int m_close(int sock_id);
+int m_bind(int sockfd, char *srcip, int srcport, char *destip, int destport);
+int m_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+int m_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen);
 void wait_sem(int sem_id);
 void signal_sem(int sem_id);
 
