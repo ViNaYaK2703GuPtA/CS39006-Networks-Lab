@@ -63,6 +63,7 @@ void *R(void *arg)
                 FD_SET(SM[i].sock_id, &readfds);
                 if(SM[i].sock_id > maxfd)
                 {
+                    printf("maxfd: %d\n", SM[i].sock_id);
                     maxfd = SM[i].sock_id;
                 }
             }
@@ -103,21 +104,30 @@ void *R(void *arg)
         // Check if there is any incoming message on any of the UDP sockets
         for (i = 0; i < MAX_SOCKETS; i++)
         {
-            
-            if ( SM[i].free==1 )    // && FD_ISSET(SM[i].sock_id, &readfds)
+            // printf("%d\n", SM[i].free);
+            // printf("%d\n", SM[i].sock_id);
+            if ( SM[i].free==1 && FD_ISSET(SM[i].sock_id, &readfds))
             {
                 // Receive the message using recvfrom()
                 char buffer[1024];
+                memset(buffer, 0, sizeof(buffer));
                 struct sockaddr_in sender_addr;
                 socklen_t sender_len = sizeof(sender_addr);
                 printf("%d\n", SM[i].sock_id);
                 ssize_t recv_len = recvfrom(SM[i].sock_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&sender_addr, &sender_len);
                 printf("Received message: %s\n", buffer);
+                
+                char msg_without_header[1024];
+                memset(msg_without_header, 0, sizeof(msg_without_header));
+                strcpy(msg_without_header, buffer+1);
+                printf("Received message without header: %s\n", msg_without_header);
+
                 if (recv_len == -1)
                 {
                     perror("recvfrom failed");
                     exit(1);
                 }
+                
                 // Store the message in the receiver-side message buffer
                 int j;
                 for (j = 0; j < 1; j++)  // change it to 5
@@ -125,7 +135,7 @@ void *R(void *arg)
                     if (strcmp(SM[i].recvbuf[0], "") == 0)
                     {
                         //printf("Received message in loop: %d\n", j);
-                        strcpy(SM[i].recvbuf[j], buffer);
+                        strcpy(SM[i].recvbuf[j], msg_without_header);
                         printf("Received message in loop: %s\n", SM[i].recvbuf[j]);
                         break;
                     }
@@ -189,7 +199,8 @@ void *S(void *arg)
     while (1)
     {
         // Sleep for some time (less than T/2)
-        usleep(2500000); // Sleep for 2.5 seconds (2500 milliseconds)
+        //usleep(2500000); // Sleep for 2.5 seconds (2500 milliseconds)
+        sleep(1);
 
         // Get the current time for checking message timeout period
         struct timeval current_time;
@@ -244,8 +255,8 @@ void *S(void *arg)
             if (SM[i].free == 1)
             {
 
-                if (SM[i].sender_window.window_size > 0)
-                {
+                // if (SM[i].sender_window.window_size > 0)
+                // {
                     int j;
                     for (j = 0; j < 10; j++)
                     {
@@ -254,13 +265,23 @@ void *S(void *arg)
                             struct sockaddr_in destaddr;
                             destaddr.sin_family = AF_INET;
                             destaddr.sin_port = htons(SM[i].destport);
-                            int err = inet_aton(SM[i].destip, &destaddr.sin_addr);
+                            inet_aton(SM[i].destip, &destaddr.sin_addr);
 
                             // Send the pending message through the UDP sendto() call for the corresponding UDP socket
                             //printf("%d\n", SM[i].sock_id);
                             printf("Sending message: %s\n", SM[i].sendbuf[j]);
                             printf("Sending to: %s:%d\n", SM[i].destip, SM[i].destport);
-                            ssize_t send_len = sendto(SM[i].sock_id, SM[i].sendbuf[j], strlen(SM[i].sendbuf[j]), 0, (struct sockaddr *)&destaddr, sizeof(destaddr));
+
+                            char msg_with_header[1024];
+                            memset(msg_with_header, 0, sizeof(msg_with_header));
+                            strcpy(msg_with_header, SM[i].sendbuf[j]);
+                            char num[1024];
+                            memset(num, 0, sizeof(num));
+                            sprintf(num, "%d", SM[i].sender_window.seq_number[j]);
+
+                            strcat(num, msg_with_header);
+
+                            ssize_t send_len = sendto(SM[i].sock_id, SM[i].sendbuf[j], strlen(SM[i].sendbuf[j]), 0, (const struct sockaddr *)&destaddr, sizeof(destaddr));
                             if (send_len == -1)
                             {
                                 perror("sendto failed 2");
@@ -273,11 +294,11 @@ void *S(void *arg)
                             // Remove the sent message from the sender-side message buffer
                             // free(SM[i].sendbuf[j]);
                             memset(SM[i].sendbuf[j], 0, sizeof(SM[i].sendbuf[j]));
-                            SM[i].sender_window.window_size--;
-                            break; // Exit loop after sending one message
+                            //SM[i].sender_window.window_size--;
+                            //break; // Exit loop after sending one message
                         }
                     }
-                }
+                // }
             }
             //signal_sem(sem_mtx);
         }

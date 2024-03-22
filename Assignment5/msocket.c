@@ -222,18 +222,18 @@ int m_recvfrom(int sockfd, void  *restrict buf, size_t len, int flags, struct so
     struct Socket *SM = (struct Socket *)shmat(shmid1, NULL, 0);;
     // SM = (struct Socket *)shmat(shmid1, NULL, 0);
     
-    //printf("m_recvfrom called\n");
+    printf("m_recvfrom called\n");
     int i ;
-   char * buffer = (char *)buf;
+    char * buffer = (char *)buf;
     for (i = 0; i < 1; i++)        //change it to 5
     {
         // printf("%s\n", SM[index].recvbuf[i]);
-        char *temp = SM[index].recvbuf[i];
-        if (strcmp(temp, "") != 0)
+        
+        if (strcmp(SM[index].recvbuf[i], "") != 0)
         {
-            // strcpy((char*)buf, SM[index].recvbuf[i]);
-            // printf("%s\n", (char*)buf); 
-            // memset(SM[index].recvbuf[i], 0, sizeof(SM[index].recvbuf[i]));
+            strcpy((char*)buf, SM[index].recvbuf[i]);
+            printf("%s\n", (char*)buf); 
+            memset(SM[index].recvbuf[i], 0, sizeof(SM[index].recvbuf[i]));
             break;
         }
     }

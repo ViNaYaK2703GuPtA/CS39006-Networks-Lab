@@ -44,21 +44,23 @@ int main() {
 
     // Receive file content over the MTP socket
     char buffer[MAX_BUFFER_SIZE];
+    memset(buffer, 0, MAX_BUFFER_SIZE);
     ssize_t bytes_received=-1;
 
     socklen_t len = sizeof(remote_addr);
-    while ((bytes_received = m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, &len))<0){
+    while ((bytes_received = m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, &len))<=0){
         sleep(3);
+        printf("%s\n",buffer);
         printf("Received %ld bytes\n", bytes_received);
-        printf("%s",buffer);
-        if (fputs(buffer, file) != bytes_received) {
-            perror("File writing failed");
-            exit(EXIT_FAILURE);
-        }
+        
+        // if (fputs(buffer, file) != bytes_received) {
+        //     perror("File writing failed");
+        //     exit(EXIT_FAILURE);
+        // }
     }
     //m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, sizeof(remote_addr));
     printf("Received %ld bytes\n", bytes_received);
-        printf("%s",buffer);
+    printf("%s",buffer);
     
 
     // Close the file and socket
