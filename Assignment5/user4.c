@@ -3,8 +3,8 @@
 #include <string.h>
 #include "msocket.h"
 
-#define PORT1 6000
-#define PORT2 5000
+#define PORT1 7000
+#define PORT2 8000
 #define IP1 "127.0.0.1"
 #define IP2 "127.0.0.1"
 #define MAX_BUFFER_SIZE 1024
@@ -27,6 +27,7 @@ int main() {
         perror("Binding failed");
         exit(EXIT_FAILURE);
     }
+    printf("Socket bound\n");
 
     // Set up remote IP and Port
     struct sockaddr_in remote_addr;
@@ -35,7 +36,7 @@ int main() {
     remote_addr.sin_addr.s_addr = inet_addr(IP1);
 
     // Open a new file to write received content
-    FILE *file = fopen("received_file.txt", "a");
+    FILE *file = fopen("received_file1.txt", "a");
     if (file == NULL) {
         perror("File opening failed");
         exit(EXIT_FAILURE);
@@ -48,7 +49,7 @@ int main() {
 
     socklen_t len = sizeof(remote_addr);
     while (1){
-        memset(buffer, 0, MAX_BUFFER_SIZE);
+
         bytes_received = m_recvfrom(sockfd, buffer, MAX_BUFFER_SIZE,0, (struct sockaddr *) &remote_addr, &len);
 
         if(bytes_received>0)
