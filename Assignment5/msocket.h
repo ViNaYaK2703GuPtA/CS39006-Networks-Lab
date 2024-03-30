@@ -17,6 +17,7 @@
 #include <time.h>
 
 #define SOCK_MTP 3
+#define T 5
 
 struct SOCK_INFO {
     int sock_id;

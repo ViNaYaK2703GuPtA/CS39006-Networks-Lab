@@ -22,7 +22,7 @@ int sem_mtx;
 
 int isTimeout(time_t start, time_t end)
 {
-    printf("start time:%d and end time: %d", start, end);
+    // printf("start time:%d and end time: %d", start, end);
     if (end - start >= 5)
     {
         return 1;
@@ -122,7 +122,7 @@ void *R(void *arg)
                     socklen_t len = sizeof(dest_addr);
                     char buffer[1024];
                     int n = recvfrom(SM[i].sock_id, buffer, 1024, 0, (struct sockaddr *)&dest_addr, &len);
-                    printf("recved message: %s\n", buffer);
+                    // printf("recved message: %s\n", buffer);
                     // int dm = dropMessage(0.1);
                     // if (dm == 1)
                     // {
@@ -143,8 +143,6 @@ void *R(void *arg)
                         }
                     }
 
-                    // strcpy(SM[i].recvbuf[0], buffer);
-
                     if (buffer[0] == 'A' && buffer[1] == 'C' && buffer[2] == 'K')
                     {
                         char number[2];
@@ -154,11 +152,9 @@ void *R(void *arg)
 
                         int num = atoi(number);
                         int t = SM[i].sender_window.seq_number[0];
-                        // SM[i].sendbuf_size[t] = 1;
-                        // printf("Received ACK for %d\n", num);
-                        // if (num == 0)
-                        //     break;
-                        if(num != t){
+
+                        if (num != t)
+                        {
                             continue;
                         }
                         SM[i].notyetack[num] = 0;
@@ -173,8 +169,8 @@ void *R(void *arg)
                         SM[i].sender_window.seq_number[9] = first;
                         memset(SM[i].sendbuf[num], 0, sizeof(SM[i].sendbuf[num]));
 
-                        printf("Received ACK for %d\n", num);
-                        printf("Sender window size: %d\n", SM[i].sender_window.window_size);
+                        // printf("Received ACK for %d\n", num);
+                        // printf("Sender window size: %d\n", SM[i].sender_window.window_size);
                     }
                     else if (buffer[0] == 'M' && buffer[1] == 'S' && buffer[2] == 'G')
                     {
@@ -184,36 +180,59 @@ void *R(void *arg)
                         inet_aton(SM[i].destip, &destaddr.sin_addr);
 
                         int num, j, x = 0;
+
+                        char message[1024];
+                        memset(message, 0, sizeof(message));
+                        char number[2];
+                        memset(number, 0, sizeof(number));
+
+                        number[0] = buffer[3];
+                        number[1] = '\0';
+                        num = atoi(number);
+
+                        // if (num == SM[i].receiver_window.seq_number[0])
+                        // {
+                        //     strcpy(message, buffer + 4);
+                        //     printf("Received message: %s\n", message);
+                        //     // strcpy(SM[i].recvbuf[j], message);
+                        //     //check which entry is recv buffer is empty
+                        //     for (j = 0; j < 5; j++)
+                        //     {
+                        //         if (SM[i].recvbuf_size[j] == 0)
+                        //         {
+                        //             strcpy(SM[i].recvbuf[j], message);
+                        //             SM[i].recvbuf_size[j] = 1;
+                        //             break;
+                        //         }
+                        //     }
+                        //     memset(buffer, 0, sizeof(buffer));
+                        //     SM[i].receiver_window.window_size--;
+                        //     SM[i].receiver_window.last_inorder_seq_no = (SM[i].receiver_window.last_inorder_seq_no + 1) % 10;
+
+                        //     printf("Window Size(Receiver) = %d\n", SM[i].receiver_window.window_size);
+                        // }
+
                         for (j = 0; j < SM[i].receiver_window.window_size; j++)
                         {
                             int temp = SM[i].receiver_window.seq_number[j];
-                            if (SM[i].recvbuf_size[temp] == 0)
+                            if (SM[i].recvbuf_size[temp % 5] == 0)
                             {
                                 printf("S.no: %d\n", SM[i].receiver_window.seq_number[j]);
                                 ns = 0;
                                 int next = SM[i].receiver_window.seq_number[j];
                                 // SM[i].recvbuf_size[next] = 0;
 
-                                char message[1024];
-                                memset(message, 0, sizeof(message));
-                                char number[2];
-                                memset(number, 0, sizeof(number));
-
-                                number[0] = buffer[3];
-                                number[1] = '\0';
-                                num = atoi(number);
-
                                 if (num == 1 + SM[i].receiver_window.last_inorder_seq_no)
                                 {
 
                                     strcpy(message, buffer + 4);
-                                    printf("Received message: %s\n", message);
+                                    // printf("Received message: %s\n", message);
                                     strcpy(SM[i].recvbuf[j], message);
                                     memset(buffer, 0, sizeof(buffer));
                                     SM[i].receiver_window.window_size--;
                                     SM[i].receiver_window.last_inorder_seq_no = (SM[i].receiver_window.last_inorder_seq_no + 1) % 10;
 
-                                    printf("Window Size(Receiver) = %d\n", SM[i].receiver_window.window_size);
+                                    //printf("Window Size(Receiver) = %d\n", SM[i].receiver_window.window_size);
 
                                     // SM[i].receiver_window.window_size++;
 
@@ -242,24 +261,24 @@ void *R(void *arg)
                             }
                         }
 
-                        if(ns == -1)
+                        if (ns == -1)
                         {
                             ns = 1;
                         }
                         else
                         {
-                        // Space available in buffer and message received, now sending an ACK
+                            // Space available in buffer and message received, now sending an ACK
 
-                        // Send the pending message through the UDP sendto() call for the corresponding UDP socket
-                        printf("%d\n", SM[i].sock_id);
-                        printf("Sending to: %s:%d\n", SM[i].destip, SM[i].destport);
+                            // Send the pending message through the UDP sendto() call for the corresponding UDP socket
+                            // printf("%d\n", SM[i].sock_id);
+                            // printf("Sending to: %s:%d\n", SM[i].destip, SM[i].destport);
 
-                        char acknowledge[1024];
-                        memset(acknowledge, 0, sizeof(acknowledge));
-                        sprintf(acknowledge, "ACK%d, rwnd size = %d", num, SM[i].receiver_window.window_size);
-                        printf("%s\n", acknowledge);
-                        sendto(SM[i].sock_id, acknowledge, strlen(acknowledge), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
-                        sleep(1);
+                            char acknowledge[1024];
+                            memset(acknowledge, 0, sizeof(acknowledge));
+                            sprintf(acknowledge, "ACK%d, rwnd size = %d", num, SM[i].receiver_window.window_size);
+                            // printf("%s\n", acknowledge);
+                            sendto(SM[i].sock_id, acknowledge, strlen(acknowledge), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
+                            sleep(1);
                         }
                     }
                 }
@@ -286,7 +305,7 @@ void *R(void *arg)
 void *S(void *arg)
 {
     time_t start_time, current_time, reference_time;
-    //time(&start_time); // Record the start time
+    // time(&start_time); // Record the start time
 
     // Get the shared memory segment containing socket information
     key_t key = ftok(".", 'b');
@@ -314,8 +333,8 @@ void *S(void *arg)
 
     // printf("\t\t\tSender process started\n");
     time(&current_time);
-        reference_time = current_time;
-        int count = 0;
+    reference_time = current_time;
+    int count = 0;
     // Loop to sleep for some time and wake up periodically
     while (1)
     {
@@ -323,10 +342,10 @@ void *S(void *arg)
         // usleep(2500000); // Sleep for 2.5 seconds (2500 milliseconds)
         sleep(1);
 
-       // if(count!=0){
+        // if(count!=0){
         // Get the current time for checking message timeout period
         time(&current_time);
-    //}
+        //}
 
         for (i = 0; i < MAX_SOCKETS; i++)
         {
@@ -340,8 +359,8 @@ void *S(void *arg)
                     if (strcmp(SM[i].sendbuf[j], "") != 0 && SM[i].notyetack[j] == 1 && SM[i].sender_window.window_size > 0)
                     {
                         // Calculate the elapsed time since message was last sent
-                        printf("Current time: %d\n", current_time-reference_time);
-                        if (isTimeout(SM[i].send_time[j], current_time-reference_time))
+                        // printf("Current time: %d\n", current_time - reference_time);
+                        if (isTimeout(SM[i].send_time[j], current_time - reference_time))
                         {
                             // Retransmit the message
                             // Your retransmission code here...
@@ -357,7 +376,7 @@ void *S(void *arg)
                             memset(header, 0, sizeof(header));
                             sprintf(temp, "MSG%d%s", SM[i].sender_window.seq_number[j], SM[i].sendbuf[j]);
 
-                            printf("%s", temp);
+                            // printf("%s", temp);
 
                             ssize_t send_len = sendto(SM[i].sock_id, temp, strlen(temp), 0, (const struct sockaddr *)&destaddr, sizeof(destaddr));
                             if (send_len == -1)
@@ -375,8 +394,7 @@ void *S(void *arg)
                             SM[i].notyetack[j] = 1;
 
                             // SM[i].sender_window.window_size--;
-                            //printf("Window Size(Sender) = %d\n", SM[i].sender_window.window_size);
-
+                            // printf("Window Size(Sender) = %d\n", SM[i].sender_window.window_size);
                         }
                     }
                 }
@@ -407,7 +425,7 @@ void *S(void *arg)
                         memset(header, 0, sizeof(header));
                         sprintf(temp, "MSG%d%s", SM[i].sender_window.seq_number[j], SM[i].sendbuf[j]);
 
-                        printf("%s", temp);
+                        // printf("%s", temp);
 
                         ssize_t send_len = sendto(SM[i].sock_id, temp, strlen(temp), 0, (const struct sockaddr *)&destaddr, sizeof(destaddr));
                         if (send_len == -1)
@@ -418,7 +436,7 @@ void *S(void *arg)
                         // Update the send timestamp
                         time(&SM[i].send_time[j]);
                         SM[i].send_time[j] = SM[i].send_time[j] - reference_time;
-                        printf("Send time :%ld\n",SM[i].send_time[j]);
+                        // printf("Send time :%ld\n", SM[i].send_time[j]);
 
                         // Remove the sent message from the sender-side message buffer
                         // free(SM[i].sendbuf[j]);
@@ -426,14 +444,14 @@ void *S(void *arg)
                         SM[i].notyetack[j] = 1;
 
                         SM[i].sender_window.window_size--;
-                        printf("Window Size(Sender) = %d\n", SM[i].sender_window.window_size);
+                        // printf("Window Size(Sender) = %d\n", SM[i].sender_window.window_size);
                         // break; // Exit loop after sending one message
                     }
                 }
             }
             // signal_sem(sem_mtx);
         }
-        printf("Sender process woke up\n");
+        // printf("Sender process woke up\n");
     }
 
     // Detach the shared memory segment
