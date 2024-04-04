@@ -38,31 +38,31 @@ struct SimDNSResponse
 };
 
 // Function to process simDNS query and generate response
-void processQuery(struct SimDNSQuery *query, struct sockaddr_in *client_addr, int sockfd)
-{
-    struct SimDNSResponse response;
-    response.ID = query->ID;
-    response.MessageType = 1; // Response type
+// void processQuery(struct SimDNSQuery *query, struct sockaddr_in *client_addr, int sockfd)
+// {
+//     struct SimDNSResponse response;
+//     response.ID = query->ID;
+//     response.MessageType = 1; // Response type
 
-    for (int i = 0; i < query->NumQueries; i++)
-    {
-        struct hostent *host_entry;
-        host_entry = gethostbyname(query->Queries[i]);
+//     for (int i = 0; i < query->NumQueries; i++)
+//     {
+//         struct hostent *host_entry;
+//         host_entry = gethostbyname(query->Queries[i]);
 
-        if (host_entry == NULL || host_entry->h_addr_list[0] == NULL)
-        {
-            response.Responses[i] = 0; // Flag bit set to 0 for invalid response
-        }
-        else
-        {
-            // Convert IP address to network byte order
-            memcpy(&response.Responses[i], host_entry->h_addr_list[0], sizeof(uint32_t));
-        }
-    }
+//         if (host_entry == NULL || host_entry->h_addr_list[0] == NULL)
+//         {
+//             response.Responses[i] = 0; // Flag bit set to 0 for invalid response
+//         }
+//         else
+//         {
+//             // Convert IP address to network byte order
+//             memcpy(&response.Responses[i], host_entry->h_addr_list[0], sizeof(uint32_t));
+//         }
+//     }
 
-    // Send response back to client
-    sendto(sockfd, &response, sizeof(response), 0, (struct sockaddr *)client_addr, sizeof(*client_addr));
-}
+//     // Send response back to client
+//     sendto(sockfd, &response, sizeof(response), 0, (struct sockaddr *)client_addr, sizeof(*client_addr));
+// }
 
 int main()
 {
@@ -115,10 +115,10 @@ int main()
             printf("Received a simDNS packet of size %d bytes\n", data_size);
 
             // Check if it's a simDNS query
-            if (query.MessageType == 0)
-            {
-                processQuery(&query, &client_addr, sockfd);
-            }
+            // if (query.MessageType == 0)
+            // {
+            //     processQuery(&query, &client_addr, sockfd);
+            // }
         }
         else
         {
