@@ -69,10 +69,8 @@ int main()
     int sockfd;
     struct timeval timeout;
     fd_set readfds;
-    char query_string[256];
-
     // Create raw socket
-    sockfd = socket(AF_INET, SOCK_RAW, htons(ETH_P_ALL));
+    sockfd = socket(AF_INET, SOCK_RAW, ETH_P_ALL);
     if (sockfd < 0)
     {
         perror("Socket creation failed");
@@ -84,17 +82,25 @@ int main()
     while (1)
     {
         // Get query string from user
+        char query_string[256];
         printf("Enter query string: ");
         fgets(query_string, sizeof(query_string), stdin);
 
         // Remove newline character from query_string
         if ((strlen(query_string) > 0) && (query_string[strlen(query_string) - 1] == '\n'))
             query_string[strlen(query_string) - 1] = '\0';
+        
+
+        char temp[256];
+        strcpy(temp, query_string);
 
         // Parse query string
-        char *token = strtok(query_string, " ");
+        char *token = strtok(temp, " ");
+        token = strtok(NULL, " ");
+
         int numQueries = atoi(token);
 
+        
         // Check if numQueries <= 8
         if (numQueries > MAX_DOMAINS)
         {
@@ -149,13 +155,20 @@ int main()
 
 
         fillSimDNSQuery(&packet, query_string);
+        //printf("packet.Query[0]: %s\n", packet.Queries[0]);
 
-        // Construct packet buffer
-        char send_buffer[sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
+        // Construct send buffer
+       char send_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
         memset(send_buffer, 0, sizeof(send_buffer));
 
+        // Construct Ethernet header
+        struct ethhdr *eth_hdr = (struct ethhdr *)send_buffer;
+        memset(eth_hdr->h_dest, 0xff, ETH_ALEN); // Destination MAC: Broadcast
+        //memset(eth_hdr->h_source, 0x00, ETH_ALEN); // Source MAC: Not set
+        //eth_hdr->h_proto = htons(ETH_P_IP); // Protocol: IP
+
         // Copy IP header to packet buffer
-        struct iphdr *ip_hdr = (struct iphdr *)send_buffer;
+        struct iphdr *ip_hdr = (struct iphdr *)(send_buffer + sizeof(struct ethhdr));
         ip_hdr->protocol = 254;
         ip_hdr->saddr = inet_addr("127.0.0.1");
         ip_hdr->daddr = inet_addr("127.0.0.1");
@@ -168,14 +181,24 @@ int main()
         ip_hdr->ttl = 255;
         ip_hdr->tot_len = sizeof(struct iphdr) + sizeof(struct SimDNSQuery);
 
-        // Copy simDNS query to packet buffer
-        memcpy(send_buffer + sizeof(struct iphdr), &packet, sizeof(struct SimDNSQuery));
+
+
+        // Copy SimDNS query to packet buffer
+        memcpy(send_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), &packet, sizeof(struct SimDNSQuery));
+
+
+        struct iphdr *ip_hdr1 = (struct iphdr *)(send_buffer + sizeof(struct ethhdr));
+        printf("ip_hdr1->protocol: %d\n", ip_hdr1->protocol);
+
 
         // Send packet to server
         struct sockaddr_in server_addr;
         server_addr.sin_family = AF_INET;
         server_addr.sin_port = htons(SERVER_PORT);
         server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+        
+    
+
         
         sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     }
