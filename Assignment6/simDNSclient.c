@@ -11,7 +11,9 @@
 #include <netdb.h>
 #include <sys/time.h>   // for timeval
 #include <sys/select.h> // for fd_set
-#include <netinet/ethernet.h>
+#include <netinet/ip.h>
+#include <netinet/ether.h>
+#include <ctype.h>
 
 #define MAX_QUERY_SIZE 32
 #define MAX_RESPONSE_SIZE 33
@@ -76,19 +78,7 @@ int main()
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
-    struct iphdr *ip_hdr;
-    ip_hdr = (struct iphdr *)malloc(sizeof(struct iphdr));
-    ip_hdr->protocol = 254;
-    ip_hdr->saddr = inet_addr("127.0.0.1");
-    ip_hdr->daddr = inet_addr("127.0.0.1");
-    ip_hdr->tot_len = sizeof(struct iphdr);
-    ip_hdr->check = 0;
-    ip_hdr->ihl = 5;
-    ip_hdr->version = 4;
-    ip_hdr->tos = 0;
-    ip_hdr->id = 0;
-    ip_hdr->frag_off = 0;
-    ip_hdr->ttl = 255;
+
 
     // Main loop to handle user queries
     while (1)
@@ -154,7 +144,10 @@ int main()
 
         // Send query to server
 
-        struct simDNSQuery packet;
+        struct SimDNSQuery packet;
+
+
+
         fillSimDNSQuery(&packet, query_string);
 
         // Construct packet buffer
@@ -179,6 +172,11 @@ int main()
         memcpy(send_buffer + sizeof(struct iphdr), &packet, sizeof(struct SimDNSQuery));
 
         // Send packet to server
+        struct sockaddr_in server_addr;
+        server_addr.sin_family = AF_INET;
+        server_addr.sin_port = htons(SERVER_PORT);
+        server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
+        
         sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
     }
 
