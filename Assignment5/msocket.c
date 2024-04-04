@@ -219,7 +219,7 @@ int m_recvfrom(int sockfd, void  *restrict buf, size_t len, int flags, struct so
     {
         // printf("%s\n", SM[index].recvbuf[i]);
         //printf("String = %s", SM[index].recvbuf[i]);
-        printf("recvbuf[%d] = %s\n", i, SM[index].recvbuf[i]);
+        // printf("recvbuf[%d] = %s\n", i, SM[index].recvbuf[i]);
         if (strcmp(SM[index].recvbuf[i], "") != 0)
         {
             strcpy((char*)buf, SM[index].recvbuf[i]);

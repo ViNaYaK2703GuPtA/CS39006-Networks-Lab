@@ -143,12 +143,13 @@ void *R(void *arg)
                         memset(number, 0, sizeof(number));
                         number[0] = buffer[3];
                         number[1] = '\0';
-                        
+
                         int num = atoi(number);
-                        //int t = SM[i].sender_window.seq_number[0];
-                        //SM[i].sendbuf_size[t] = 1;
-                        //printf("Received ACK for %d\n", num);
-                        if(num==0) break;
+                        // int t = SM[i].sender_window.seq_number[0];
+                        // SM[i].sendbuf_size[t] = 1;
+                        // printf("Received ACK for %d\n", num);
+                        if (num == 0)
+                            break;
                         SM[i].notyetack[num] = 0;
                         SM[i].sendbuf_size[num] = 0;
                         SM[i].sender_window.window_size += 1;
@@ -163,7 +164,7 @@ void *R(void *arg)
                         printf("Received ACK for %d\n", num);
                         printf("Sender window size: %d\n", SM[i].sender_window.window_size);
                     }
-                    else if(buffer[0] == 'M' && buffer[1] == 'S' && buffer[2] == 'G')
+                    else if (buffer[0] == 'M' && buffer[1] == 'S' && buffer[2] == 'G')
                     {
                         struct sockaddr_in destaddr;
                         destaddr.sin_family = AF_INET;
@@ -179,7 +180,7 @@ void *R(void *arg)
                                 printf("S.no: %d\n", SM[i].receiver_window.seq_number[j]);
                                 // ns = 0;
                                 int next = SM[i].receiver_window.seq_number[j];
-                                //SM[i].recvbuf_size[next] = 0;
+                                // SM[i].recvbuf_size[next] = 0;
 
                                 char message[1024];
                                 memset(message, 0, sizeof(message));
@@ -190,9 +191,9 @@ void *R(void *arg)
                                 number[1] = '\0';
                                 num = atoi(number);
 
-                                if (num == 1+SM[i].receiver_window.last_inorder_seq_no)
+                                if (num == 1 + SM[i].receiver_window.last_inorder_seq_no)
                                 {
-                                    
+
                                     strcpy(message, buffer + 4);
                                     printf("Received message: %s\n", message);
                                     strcpy(SM[i].recvbuf[j], message);
@@ -200,10 +201,10 @@ void *R(void *arg)
                                     SM[i].receiver_window.window_size--;
 
                                     printf("Window Size(Receiver) = %d\n", SM[i].receiver_window.window_size);
-                                    
-                                    //SM[i].receiver_window.window_size++;
-                                    
-                                    //printf("Sending to: %s:%d\n", SM[i].destip, SM[i].destport);
+
+                                    // SM[i].receiver_window.window_size++;
+
+                                    // printf("Sending to: %s:%d\n", SM[i].destip, SM[i].destport);
 
                                     char acknowledge[1024];
                                     memset(acknowledge, 0, sizeof(acknowledge));
@@ -213,7 +214,7 @@ void *R(void *arg)
                                     sendto(SM[i].sock_id, acknowledge, strlen(acknowledge), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr));
                                     sleep(1);
                                 }
-                                else if(buffer[0] == 'M' && buffer[1] == 'S' && buffer[2] == 'G')
+                                else if (buffer[0] == 'M' && buffer[1] == 'S' && buffer[2] == 'G')
                                 {
                                     printf("Sending to: %s:%d\n", SM[i].destip, SM[i].destport);
 
@@ -305,7 +306,6 @@ void *S(void *arg)
 
         // Get the current time for checking message timeout period
 
-
         // Check whether the message timeout period (T) is over for messages sent over any active MTP sockets
         // for (i = 0; i < MAX_SOCKETS; i++)
         // {
@@ -353,13 +353,13 @@ void *S(void *arg)
             // wait_sem(sem_mtx);
             if (SM[i].free == 1)
             {
-                
+
                 int j;
                 for (j = 0; j < 10; j++)
                 {
                     if (strcmp(SM[i].sendbuf[j], "") != 0 && SM[i].notyetack[j] == 0 && SM[i].sender_window.window_size > 0)
                     {
-                        struct sockaddr_in destaddr;    
+                        struct sockaddr_in destaddr;
                         destaddr.sin_family = AF_INET;
                         destaddr.sin_port = htons(SM[i].destport);
                         inet_aton(SM[i].destip, &destaddr.sin_addr);
@@ -380,7 +380,6 @@ void *S(void *arg)
                         }
                         // Update the send timestamp
                         time(&SM[i].sender_window.send_time[j]);
-                        
 
                         // Remove the sent message from the sender-side message buffer
                         // free(SM[i].sendbuf[j]);
@@ -391,7 +390,6 @@ void *S(void *arg)
                         printf("Window Size(Sender) = %d\n", SM[i].sender_window.window_size);
                         // break; // Exit loop after sending one message
                     }
-                
                 }
             }
             // signal_sem(sem_mtx);
@@ -660,7 +658,7 @@ int main()
 //     int shmid1 = shmget(key1, MAX_SOCKETS*sizeof(struct Socket), IPC_CREAT | 0777);
 //     struct Socket *SM;
 //     SM = (struct Socket *)shmat(shmid1, NULL, 0);
-    
+
 //     for (index = 0; index < 25; index++)
 //     {
 //         if (SM[index].sock_id == sock_id)
@@ -684,3 +682,9 @@ int main()
 //     }
 //     return close(sockfd);
 // }
+
+// Inside Receiver
+// SM[i].sendbuf_size[t] = 1;
+// printf("Received ACK for %d\n", num);
+// if (num == 0)
+//     break;
