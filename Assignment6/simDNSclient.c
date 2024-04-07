@@ -1,5 +1,3 @@
-// simDNSclient.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +12,9 @@
 #include <netinet/ip.h>
 #include <netinet/ether.h>
 #include <ctype.h>
+#include <linux/if_packet.h>
+#include <linux/if_ether.h>
+#include <net/if.h>
 
 #define MAX_QUERY_SIZE 32
 #define MAX_RESPONSE_SIZE 33
@@ -41,6 +42,8 @@ struct SimDNSResponse
 
 int cnt = 1;
 
+struct SimDNSQuery pendingQueryTable[100000];
+
 // Function to construct and send simDNS query
 void fillSimDNSQuery(struct SimDNSQuery *query, char *query_string)
 {
@@ -50,7 +53,7 @@ void fillSimDNSQuery(struct SimDNSQuery *query, char *query_string)
     token = strtok(NULL, " ");
 
     query->ID = cnt;
-    cnt++;
+
     query->MessageType = 0; // Query type
 
     int numQueries = atoi(token);
@@ -62,146 +65,276 @@ void fillSimDNSQuery(struct SimDNSQuery *query, char *query_string)
         token = strtok(NULL, " ");
         strcpy(query->Queries[i], token);
     }
+
+    pendingQueryTable[cnt] = *query;
+    cnt++;
 }
 
 int main()
 {
+    memset(pendingQueryTable, 0, sizeof(pendingQueryTable));
     int sockfd;
     struct timeval timeout;
     fd_set readfds;
     // Create raw socket
-    sockfd = socket(AF_INET, SOCK_RAW, ETH_P_ALL);
+    sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     if (sockfd < 0)
     {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
-
+    struct sockaddr_ll server_addr;
+    socklen_t server_len = sizeof(server_addr);
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sll_family = AF_PACKET;
+    server_addr.sll_protocol = htons(ETH_P_ALL);
+    server_addr.sll_halen = ETH_ALEN;
+    server_addr.sll_ifindex = if_nametoindex("lo");
 
     // Main loop to handle user queries
     while (1)
     {
-        // Get query string from user
+        FD_ZERO(&readfds);
+        FD_SET(STDIN_FILENO, &readfds); // Add stdin to readfds
+        FD_SET(sockfd, &readfds);       // Add sockfd to readfds
         char query_string[256];
-        printf("Enter query string: ");
-        fgets(query_string, sizeof(query_string), stdin);
 
-        // Remove newline character from query_string
-        if ((strlen(query_string) > 0) && (query_string[strlen(query_string) - 1] == '\n'))
-            query_string[strlen(query_string) - 1] = '\0';
-        
+        // Set the timeout
+        timeout.tv_sec = 5;  // 5 seconds
+        timeout.tv_usec = 0; // 0 microseconds
+        // Wait for activity on stdin or sockfd
 
-        char temp[256];
-        strcpy(temp, query_string);
+        int activity = select(sockfd + 1, &readfds, NULL, NULL, &timeout);
+        // Get query string from user
 
-        // Parse query string
-        char *token = strtok(temp, " ");
-        token = strtok(NULL, " ");
-
-        int numQueries = atoi(token);
-
-        
-        // Check if numQueries <= 8
-        if (numQueries > MAX_DOMAINS)
+        if (activity < 0)
         {
-            printf("Error: Number of queries should be less than or equal to 8.\n");
-            continue;
+            perror("Error in select");
+            exit(EXIT_FAILURE);
         }
 
-        // Validate domain names
-        int valid = 1;
-        for (int i = 0; i < numQueries; i++)
+        if (activity == 0)
         {
+            printf("timeout\n");
+            // Send the pending queries again
+            for (int i = 1; i < cnt; i++)
+            {
+                if (pendingQueryTable[i].ID != 0)
+                {
+                    struct SimDNSQuery packet;
+                    packet = pendingQueryTable[i];
+
+                    // Construct send buffer
+                    char send_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
+                    memset(send_buffer, 0, sizeof(send_buffer));
+
+                    // Construct Ethernet header
+                    struct ethhdr *eth_hdr = (struct ethhdr *)send_buffer;
+                    // 08:00:27:bc:cc:be this is dest and src mac address
+                    eth_hdr->h_dest[0] = 0xff;
+                    eth_hdr->h_dest[1] = 0xff;
+                    eth_hdr->h_dest[2] = 0xff;
+                    eth_hdr->h_dest[3] = 0xff;
+                    eth_hdr->h_dest[4] = 0xff;
+                    eth_hdr->h_dest[5] = 0xff;
+
+                    memset(eth_hdr->h_source, 0, 6);
+                    eth_hdr->h_proto = htons(ETH_P_ALL);
+
+                    struct iphdr *ip_hdr = (struct iphdr *)(send_buffer + sizeof(struct ethhdr));
+                    ip_hdr->protocol = 254;
+                    ip_hdr->saddr = inet_addr("127.0.0.1");
+                    ip_hdr->daddr = inet_addr("127.0.0.1");
+                    ip_hdr->check = 0;
+                    ip_hdr->ihl = 5;
+                    ip_hdr->version = 4;
+                    ip_hdr->tos = 0;
+                    ip_hdr->id = 0;
+                    ip_hdr->frag_off = 0;
+                    ip_hdr->ttl = 255;
+                    ip_hdr->tot_len = htons(sizeof(struct iphdr) + sizeof(struct SimDNSQuery));
+
+                    // Copy SimDNS query to packet buffer
+                    memcpy(send_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), &packet, sizeof(struct SimDNSQuery));
+
+                    printf("Sending packet to server\n");
+
+                    sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+                }
+
+                fflush(stdout);
+                // break;
+            }
+        }
+        // If activity on stdin (user input)
+        if (FD_ISSET(STDIN_FILENO, &readfds))
+        {
+            // printf("Enter query string: ");
+            fgets(query_string, sizeof(query_string), stdin);
+            // scanf("%255[^\n]", query_string);
+            // Remove newline character from query_string
+            if ((strlen(query_string) > 0) && (query_string[strlen(query_string) - 1] == '\n'))
+                query_string[strlen(query_string) - 1] = '\0';
+
+            char temp[256];
+            strcpy(temp, query_string);
+
+            // Parse query string
+            char *token = strtok(temp, " ");
             token = strtok(NULL, " ");
-            if (token == NULL)
+
+            int numQueries = atoi(token);
+
+            // Check if numQueries <= 8
+            if (numQueries > MAX_DOMAINS)
             {
-                printf("Error: Insufficient number of queries provided.\n");
-                valid = 0;
-                break;
+                printf("Error: Number of queries should be less than or equal to 8.\n");
+                continue;
             }
-            if (strlen(token) < 3 || strlen(token) > 31)
+
+            // Validate domain names
+            int valid = 1;
+            for (int i = 0; i < numQueries; i++)
             {
-                printf("Error: Domain name '%s' does not meet length requirements.\n", token);
-                valid = 0;
-                break;
-            }
-            for (int j = 0; j < strlen(token); j++)
-            {
-                if (!(isalnum(token[j]) || token[j] == '-' || token[j] == '.'))
+                token = strtok(NULL, " ");
+                if (token == NULL)
                 {
-                    printf("Error: Domain name '%s' contains invalid characters.\n", token);
+                    printf("Error: Insufficient number of queries provided.\n");
                     valid = 0;
                     break;
                 }
-                if (token[j] == '-' && (j == 0 || j == strlen(token) - 1 || token[j - 1] == '-'))
+                if (strlen(token) < 3 || strlen(token) > 31)
                 {
-                    printf("Error: Domain name '%s' contains consecutive hyphens or starts/ends with hyphen.\n", token);
+                    printf("Error: Domain name '%s' does not meet length requirements.\n", token);
                     valid = 0;
                     break;
                 }
+                for (int j = 0; j < strlen(token); j++)
+                {
+                    if (!(isalnum(token[j]) || token[j] == '-' || token[j] == '.'))
+                    {
+                        printf("Error: Domain name '%s' contains invalid characters.\n", token);
+                        valid = 0;
+                        break;
+                    }
+                    if (token[j] == '-' && (j == 0 || j == strlen(token) - 1 || token[j - 1] == '-'))
+                    {
+                        printf("Error: Domain name '%s' contains consecutive hyphens or starts/ends with hyphen.\n", token);
+                        valid = 0;
+                        break;
+                    }
+                }
+                if (!valid)
+                    break;
             }
+
+            // If any validation fails, prompt user for next query
             if (!valid)
-                break;
+                continue;
+
+            // Send query to server
+
+            struct SimDNSQuery packet;
+
+            fillSimDNSQuery(&packet, query_string);
+
+            // Construct send buffer
+            char send_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
+            memset(send_buffer, 0, sizeof(send_buffer));
+
+            // Construct Ethernet header
+            struct ethhdr *eth_hdr = (struct ethhdr *)send_buffer;
+            // 08:00:27:bc:cc:be this is dest and src mac address
+            eth_hdr->h_dest[0] = 0xff;
+            eth_hdr->h_dest[1] = 0xff;
+            eth_hdr->h_dest[2] = 0xff;
+            eth_hdr->h_dest[3] = 0xff;
+            eth_hdr->h_dest[4] = 0xff;
+            eth_hdr->h_dest[5] = 0xff;
+
+            memset(eth_hdr->h_source, 0, 6);
+            eth_hdr->h_proto = htons(ETH_P_ALL);
+
+            // Copy IP header to packet buffer
+            struct iphdr *ip_hdr = (struct iphdr *)(send_buffer + sizeof(struct ethhdr));
+            ip_hdr->protocol = 254;
+            ip_hdr->saddr = inet_addr("127.0.0.1");
+            ip_hdr->daddr = inet_addr("127.0.0.1");
+            ip_hdr->check = 0;
+            ip_hdr->ihl = 5;
+            ip_hdr->version = 4;
+            ip_hdr->tos = 0;
+            ip_hdr->id = 0;
+            ip_hdr->frag_off = 0;
+            ip_hdr->ttl = 255;
+            ip_hdr->tot_len = htons(sizeof(struct iphdr) + sizeof(struct SimDNSQuery));
+
+            // Copy SimDNS query to packet buffer
+            memcpy(send_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), &packet, sizeof(struct SimDNSQuery));
+
+            // Send packet to server
+
+            printf("Sending packet to server\n");
+
+            sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         }
 
-        // If any validation fails, prompt user for next query
-        if (!valid)
-            continue;
+        // If activity on sockfd (response from server)
+        if (FD_ISSET(sockfd, &readfds))
+        {
+            // Receive response from server
 
-        // Send query to server
+            char recv_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSResponse)];
+            int recv_len = recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0, (struct sockaddr *)&server_addr, &server_len);
+            if (recv_len < 0)
+            {
+                perror("Receive failed");
+                continue;
+            }
+            // printf("Received packet of length %d\n", recv_len);
+            struct iphdr *ip_hdr2 = (struct iphdr *)(recv_buffer + sizeof(struct ethhdr));
+            // printf("ip_hdr2->protocol: %d\n", ip_hdr2->protocol);
 
-        struct SimDNSQuery packet;
+            // print message type
+            struct SimDNSResponse *response = (struct SimDNSResponse *)(recv_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr));
+            // printf("response->MessageType: %d\n", response->MessageType);
 
+            // // Check IP header protocol field
+            if (ip_hdr2->protocol != 254)
+            {
+                // printf("Non-simDNS packet received. Discarding.\n");
+                continue;
+            }
 
+            if (response->MessageType == 0)
+                continue;
 
-        fillSimDNSQuery(&packet, query_string);
-        //printf("packet.Query[0]: %s\n", packet.Queries[0]);
+            // printf("response->ID: %d\n", response->ID);
+            if (!(response->ID > 0 && response->ID < 100000))
+                continue;
 
-        // Construct send buffer
-       char send_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
-        memset(send_buffer, 0, sizeof(send_buffer));
+            if (pendingQueryTable[response->ID].ID == 0)
+                continue;
 
-        // Construct Ethernet header
-        struct ethhdr *eth_hdr = (struct ethhdr *)send_buffer;
-        memset(eth_hdr->h_dest, 0xff, ETH_ALEN); // Destination MAC: Broadcast
-        //memset(eth_hdr->h_source, 0x00, ETH_ALEN); // Source MAC: Not set
-        //eth_hdr->h_proto = htons(ETH_P_IP); // Protocol: IP
+            // Process and print response
+            printf("Query ID: %d\nTotal query strings: %d\n", response->ID, response->NumResponses);
+            for (int i = 0; i < response->NumResponses; i++)
+            {
+                if (response->Responses[i] != 0)
+                {
+                    // struct in_addr addr;
+                    // addr.s_addr = response->Responses[i];
+                    printf("%s\n", response->Responses[i]);
+                }
+            }
+            pendingQueryTable[response->ID].ID = 0;
 
-        // Copy IP header to packet buffer
-        struct iphdr *ip_hdr = (struct iphdr *)(send_buffer + sizeof(struct ethhdr));
-        ip_hdr->protocol = 254;
-        ip_hdr->saddr = inet_addr("127.0.0.1");
-        ip_hdr->daddr = inet_addr("127.0.0.1");
-        ip_hdr->check = 0;
-        ip_hdr->ihl = 5;
-        ip_hdr->version = 4;
-        ip_hdr->tos = 0;
-        ip_hdr->id = 0;
-        ip_hdr->frag_off = 0;
-        ip_hdr->ttl = 255;
-        ip_hdr->tot_len = sizeof(struct iphdr) + sizeof(struct SimDNSQuery);
+            // // get the response id
+            // int responseID = response.ID;
 
-
-
-        // Copy SimDNS query to packet buffer
-        memcpy(send_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), &packet, sizeof(struct SimDNSQuery));
-
-
-        struct iphdr *ip_hdr1 = (struct iphdr *)(send_buffer + sizeof(struct ethhdr));
-        printf("ip_hdr1->protocol: %d\n", ip_hdr1->protocol);
-
-
-        // Send packet to server
-        struct sockaddr_in server_addr;
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(SERVER_PORT);
-        server_addr.sin_addr.s_addr = inet_addr(SERVER_IP);
-        
-    
-
-        
-        sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+            // // find the query in the pendingQueryTable
+            // struct SimDNSQuery query = pendingQueryTable[responseID];
+        }
     }
-
     return 0;
 }

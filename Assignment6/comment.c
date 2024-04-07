@@ -63,3 +63,19 @@
 
     return 0;
 }
+
+ // struct sockaddr_ll server_addr;
+            // server_addr.sll_family = AF_PACKET;
+            // server_addr.sll_protocol = htons(ETH_P_ALL);
+            // server_addr.sll_halen = ETH_ALEN;
+            // server_addr.sll_ifindex = 0;
+            // memset(server_addr.sll_addr, 0, 8);
+            // server_addr.sll_addr[0] = 0x08;
+            // server_addr.sll_addr[1] = 0x00;
+            // server_addr.sll_addr[2] = 0x27;
+            // server_addr.sll_addr[3] = 0xbc;
+            // server_addr.sll_addr[4] = 0xcc;
+            // server_addr.sll_addr[5] = 0xbe;
+
+
+            getIP 2 www.yahoo.com www.google.com

@@ -1,5 +1,3 @@
-// simDNSserver.c
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +9,10 @@
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <netinet/ether.h>
+#include <linux/if_packet.h>
+#include <linux/if_ether.h>
+#include <net/if.h>
+
 
 #define MAX_QUERY_SIZE 32
 #define MAX_RESPONSE_SIZE 33
@@ -38,61 +40,67 @@ struct SimDNSResponse
 int main()
 {
     int sockfd;
-    struct sockaddr_in server_addr, client_addr;
+    struct sockaddr_ll server_addr;
+    struct sockaddr_ll client_addr;
     socklen_t client_len;
     struct SimDNSQuery query;
     struct SimDNSResponse response;
-    char recv_buffer[sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
-    char send_buffer[sizeof(struct iphdr) + sizeof(struct SimDNSResponse)];
+    char recv_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
+    char send_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSResponse)];
 
     // Create raw socket
-    sockfd = socket(AF_INET, SOCK_RAW, ETH_P_ALL);
+    sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     if (sockfd < 0)
     {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
 
-    // Bind the socket to the local IP address
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(SERVER_PORT);
 
-    if (bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    struct ifreq ifr;
+    memset(&ifr, 0, sizeof(ifr));
+    strncpy(ifr.ifr_name, "lo", IFNAMSIZ - 1);
+
+    // Obtain hardware (MAC) address of the network interface
+
+    if (setsockopt(sockfd, SOL_SOCKET, SO_BINDTODEVICE, (void *)&ifr, sizeof(ifr)) < 0)
     {
-        perror("Bind failed");
+        perror("Bind to interface failed");
         exit(EXIT_FAILURE);
     }
 
     // Main loop to read and process queries
     while (1)
     {
-        // Receive packet
+        memset(recv_buffer, 0, sizeof(recv_buffer));
+
+        
+
         int recv_len = recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0, (struct sockaddr *)&client_addr, &client_len);
+
         if (recv_len < 0)
         {
             perror("Receive failed");
             continue;
         }
-        printf("Received packet of length %d\n", sizeof(recv_buffer));
 
         // Check IP header protocol field
-        struct iphdr *ip_hdr = (struct iphdr *)(recv_buffer);
-        printf("Received packet with protocol %d\n", ip_hdr->protocol);
-        if (ip_hdr->protocol != 254)
-        {
-            printf("Non-simDNS packet received. Discarding.\n");
-            continue;
-        }
+        struct iphdr *ip_hdr = (struct iphdr *)(recv_buffer + sizeof(struct ethhdr));
+
+        if(ip_hdr->protocol != 254) continue;
+
 
         // Extract SimDNS query
-        memcpy(&query, recv_buffer + sizeof(struct iphdr), sizeof(struct SimDNSQuery));
+        memcpy(&query, recv_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), sizeof(struct SimDNSQuery));
+
+        if(query.MessageType == 1) continue;
 
         // Prepare SimDNS response
-        response.ID = query.ID;
+        // printf("Received query with ID %d\n", query.ID);
+        // response.ID = query.ID;
         response.MessageType = 1; // Response
-        response.NumResponses = query.NumQueries;
+        // printf("Received query with %d queries\n", query.NumQueries);
+        // response.NumResponses = query.NumQueries;
 
         // Resolve domain names and populate response
         for (int i = 0; i < query.NumQueries; i++)
@@ -105,13 +113,41 @@ int main()
             else
             {
                 strcpy(response.Responses[i], inet_ntoa(*(struct in_addr *)host_entry->h_addr_list[0]));
+                printf("Resolved %s to %s\n", query.Queries[i], response.Responses[i]);
             }
         }
 
         // Construct and send response
         memset(send_buffer, 0, sizeof(send_buffer));
-        memcpy(send_buffer, recv_buffer, sizeof(struct iphdr)); // Copy IP header
-        memcpy(send_buffer + sizeof(struct iphdr), &response, sizeof(struct SimDNSResponse)); // Copy SimDNS response
+
+        // construct ethernet header
+        struct ethhdr *eth = (struct ethhdr *)send_buffer;
+        eth->h_proto = htons(ETH_P_ALL);
+        memset(eth->h_dest, 0xff, ETH_ALEN);
+        memset(eth->h_source, 0, ETH_ALEN);
+
+        // construct ip header
+        struct iphdr *ip = (struct iphdr *)(send_buffer + sizeof(struct ethhdr));
+        ip->ihl = 5;
+        ip->version = 4;
+        ip->tos = 0;
+        ip->tot_len = htons(sizeof(struct iphdr) + sizeof(struct SimDNSResponse));
+        ip->id = 0;
+        ip->frag_off = 0;
+        ip->ttl = 255;
+        ip->protocol = 254;
+        ip_hdr->saddr = inet_addr("127.0.0.1");
+        ip_hdr->daddr = inet_addr("127.0.0.1");
+        ip->check = 0;
+
+        // construct SimDNS response
+        memcpy(send_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), &response, sizeof(struct SimDNSResponse));
+
+        // memset(&client_addr, 0, sizeof(client_addr));
+        // client_addr.sll_family = AF_PACKET;
+        // client_addr.sll_protocol = htons(ETH_P_ALL);
+        // client_addr.sll_halen = ETH_ALEN;
+        // client_addr.sll_ifindex = if_nametoindex("lo");
 
         if (sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&client_addr, client_len) < 0)
         {
