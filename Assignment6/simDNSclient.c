@@ -100,7 +100,7 @@ int main()
         char query_string[256];
 
         // Set the timeout
-        timeout.tv_sec = 5;  // 5 seconds
+        timeout.tv_sec = 30;  // 5 seconds
         timeout.tv_usec = 0; // 0 microseconds
         // Wait for activity on stdin or sockfd
 
@@ -293,7 +293,7 @@ int main()
             }
             // printf("Received packet of length %d\n", recv_len);
             struct iphdr *ip_hdr2 = (struct iphdr *)(recv_buffer + sizeof(struct ethhdr));
-            // printf("ip_hdr2->protocol: %d\n", ip_hdr2->protocol);
+            //printf("ip_hdr2->protocol: %d\n", ip_hdr2->protocol);
 
             // print message type
             struct SimDNSResponse *response = (struct SimDNSResponse *)(recv_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr));
@@ -315,25 +315,20 @@ int main()
 
             if (pendingQueryTable[response->ID].ID == 0)
                 continue;
+            
 
             // Process and print response
-            printf("Query ID: %d\nTotal query strings: %d\n", response->ID, response->NumResponses);
+            printf("\nQuery ID: %d\nTotal query strings: %d\n", response->ID, response->NumResponses);
             for (int i = 0; i < response->NumResponses; i++)
             {
                 if (response->Responses[i] != 0)
                 {
                     // struct in_addr addr;
                     // addr.s_addr = response->Responses[i];
-                    printf("%s\n", response->Responses[i]);
+                    printf("%s\t%s\n", pendingQueryTable[response->ID].Queries[i],response->Responses[i]);
                 }
             }
             pendingQueryTable[response->ID].ID = 0;
-
-            // // get the response id
-            // int responseID = response.ID;
-
-            // // find the query in the pendingQueryTable
-            // struct SimDNSQuery query = pendingQueryTable[responseID];
         }
     }
     return 0;

@@ -13,7 +13,6 @@
 #include <linux/if_ether.h>
 #include <net/if.h>
 
-
 #define MAX_QUERY_SIZE 32
 #define MAX_RESPONSE_SIZE 33
 #define MAX_DOMAINS 8
@@ -37,14 +36,23 @@ struct SimDNSResponse
     char Responses[MAX_DOMAINS][MAX_RESPONSE_SIZE];
 };
 
+int dropmessage(float p)
+{
+    float r = (float)rand() / (float)RAND_MAX;
+    if (r < p)
+    {
+        return 1;
+    }
+    return 0;
+}
+
 int main()
 {
     int sockfd;
     struct sockaddr_ll server_addr;
     struct sockaddr_ll client_addr;
     socklen_t client_len;
-    struct SimDNSQuery query;
-    struct SimDNSResponse response;
+
     char recv_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
     char send_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSResponse)];
 
@@ -55,7 +63,6 @@ int main()
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
-
 
     struct ifreq ifr;
     memset(&ifr, 0, sizeof(ifr));
@@ -73,10 +80,18 @@ int main()
     while (1)
     {
         memset(recv_buffer, 0, sizeof(recv_buffer));
+        struct SimDNSQuery query;
+        struct SimDNSResponse response;
 
-        
+
 
         int recv_len = recvfrom(sockfd, recv_buffer, sizeof(recv_buffer), 0, (struct sockaddr *)&client_addr, &client_len);
+
+        if(dropmessage(0.3))
+        {
+            //printf("Dropped message\n");
+            continue;
+        }
 
         if (recv_len < 0)
         {
@@ -87,20 +102,21 @@ int main()
         // Check IP header protocol field
         struct iphdr *ip_hdr = (struct iphdr *)(recv_buffer + sizeof(struct ethhdr));
 
-        if(ip_hdr->protocol != 254) continue;
-
+        if (ip_hdr->protocol != 254)
+            continue;
 
         // Extract SimDNS query
         memcpy(&query, recv_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), sizeof(struct SimDNSQuery));
 
-        if(query.MessageType == 1) continue;
+        if (query.MessageType == 1)
+            continue;
 
         // Prepare SimDNS response
         // printf("Received query with ID %d\n", query.ID);
-        // response.ID = query.ID;
+        response.ID = query.ID;
         response.MessageType = 1; // Response
         // printf("Received query with %d queries\n", query.NumQueries);
-        // response.NumResponses = query.NumQueries;
+        response.NumResponses = query.NumQueries;
 
         // Resolve domain names and populate response
         for (int i = 0; i < query.NumQueries; i++)
@@ -108,12 +124,12 @@ int main()
             struct hostent *host_entry = gethostbyname(query.Queries[i]);
             if (host_entry == NULL || host_entry->h_addr_list[0] == NULL)
             {
-                strcpy(response.Responses[i], "N/A");
+                strcpy(response.Responses[i], "NO IP ADDRESS FOUND");
             }
             else
             {
                 strcpy(response.Responses[i], inet_ntoa(*(struct in_addr *)host_entry->h_addr_list[0]));
-                printf("Resolved %s to %s\n", query.Queries[i], response.Responses[i]);
+                //printf("Resolved %s to %s\n", query.Queries[i], response.Responses[i]);
             }
         }
 
@@ -143,11 +159,6 @@ int main()
         // construct SimDNS response
         memcpy(send_buffer + sizeof(struct ethhdr) + sizeof(struct iphdr), &response, sizeof(struct SimDNSResponse));
 
-        // memset(&client_addr, 0, sizeof(client_addr));
-        // client_addr.sll_family = AF_PACKET;
-        // client_addr.sll_protocol = htons(ETH_P_ALL);
-        // client_addr.sll_halen = ETH_ALEN;
-        // client_addr.sll_ifindex = if_nametoindex("lo");
 
         if (sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&client_addr, client_len) < 0)
         {

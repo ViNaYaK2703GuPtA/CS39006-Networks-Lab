@@ -78,4 +78,6 @@
             // server_addr.sll_addr[5] = 0xbe;
 
 
-            getIP 2 www.yahoo.com www.google.com
+            getIP 4 www.yahoo.com www.google.com www.mail.com www.twitter.com
+            getIP 3 www.yahoo.com www.google.com www.mail.com
+            getIP 5 www.tennishub.com www..com www.mail.com www.twitter.com www.facebook.com
