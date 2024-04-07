@@ -70,8 +70,17 @@ void fillSimDNSQuery(struct SimDNSQuery *query, char *query_string)
     cnt++;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    if(argc !=2)
+    {
+        printf("Write the mac address of the interface\n");
+        exit(EXIT_FAILURE);
+    }
+
+    char mac[50];
+    strcpy(mac,argv[1]);
+
     memset(pendingQueryTable, 0, sizeof(pendingQueryTable));
     int sockfd;
     struct timeval timeout;
@@ -130,13 +139,13 @@ int main()
 
                     // Construct Ethernet header
                     struct ethhdr *eth_hdr = (struct ethhdr *)send_buffer;
+                    // get the mac address of the interface from char mac[]
+                    sscanf(mac, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                           &eth_hdr->h_dest[0], &eth_hdr->h_dest[1], &eth_hdr->h_dest[2], &eth_hdr->h_dest[3], &eth_hdr->h_dest[4], &eth_hdr->h_dest[5]);
+
+
                     // 08:00:27:bc:cc:be this is dest and src mac address
-                    eth_hdr->h_dest[0] = 0xff;
-                    eth_hdr->h_dest[1] = 0xff;
-                    eth_hdr->h_dest[2] = 0xff;
-                    eth_hdr->h_dest[3] = 0xff;
-                    eth_hdr->h_dest[4] = 0xff;
-                    eth_hdr->h_dest[5] = 0xff;
+                    
 
                     memset(eth_hdr->h_source, 0, 6);
                     eth_hdr->h_proto = htons(ETH_P_ALL);
