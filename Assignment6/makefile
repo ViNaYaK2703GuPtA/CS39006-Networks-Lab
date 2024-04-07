@@ -1,6 +1,6 @@
 all:
-	gcc simDNSserver.c -o serv
-	gcc simDNSclient.c -o cli
+	gcc simDNSserver.c -o server
+	gcc simDNSclient.c -o client
 	
 clean:
-	rm -f serv cli
+	rm -f server client
