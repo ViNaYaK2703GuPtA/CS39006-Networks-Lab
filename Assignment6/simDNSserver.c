@@ -28,12 +28,18 @@ struct SimDNSQuery
 };
 
 // Structure for simDNS response packet
+struct responseType
+{
+    int validFlag;
+    char IP[32];
+};
+
 struct SimDNSResponse
 {
     int ID;
     int MessageType;
     int NumResponses;
-    char Responses[MAX_DOMAINS][MAX_RESPONSE_SIZE];
+    struct responseType Responses[MAX_DOMAINS];
 };
 
 int dropmessage(float p)
@@ -124,11 +130,12 @@ int main()
             struct hostent *host_entry = gethostbyname(query.Queries[i]);
             if (host_entry == NULL || host_entry->h_addr_list[0] == NULL)
             {
-                strcpy(response.Responses[i], "NO IP ADDRESS FOUND");
+                response.Responses[i].validFlag = 0;
             }
             else
             {
-                strcpy(response.Responses[i], inet_ntoa(*(struct in_addr *)host_entry->h_addr_list[0]));
+                response.Responses[i].validFlag = 1;
+                strcpy(response.Responses[i].IP, inet_ntoa(*(struct in_addr *)host_entry->h_addr_list[0]));
                 //printf("Resolved %s to %s\n", query.Queries[i], response.Responses[i]);
             }
         }

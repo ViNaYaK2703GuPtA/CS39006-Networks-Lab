@@ -31,18 +31,31 @@ struct SimDNSQuery
     char Queries[MAX_DOMAINS][MAX_QUERY_SIZE];
 };
 
+
+
 // Structure for simDNS response packet
+struct responseType
+{
+    int validFlag;
+    char IP[32];
+};
+
 struct SimDNSResponse
 {
     int ID;
     int MessageType;
     int NumResponses;
-    char Responses[MAX_DOMAINS][MAX_RESPONSE_SIZE];
+    struct responseType Responses[MAX_DOMAINS];
 };
 
 int cnt = 1;
 
-struct SimDNSQuery pendingQueryTable[100000];
+struct Table
+{
+    int retries;
+    struct SimDNSQuery query;
+};
+struct Table pendingQueryTable[100000];
 
 // Function to construct and send simDNS query
 void fillSimDNSQuery(struct SimDNSQuery *query, char *query_string)
@@ -66,7 +79,8 @@ void fillSimDNSQuery(struct SimDNSQuery *query, char *query_string)
         strcpy(query->Queries[i], token);
     }
 
-    pendingQueryTable[cnt] = *query;
+    pendingQueryTable[cnt].query = *query;
+    pendingQueryTable[cnt].retries = 0;
     cnt++;
 }
 
@@ -109,7 +123,7 @@ int main(int argc, char *argv[])
         char query_string[256];
 
         // Set the timeout
-        timeout.tv_sec = 30;  // 5 seconds
+        timeout.tv_sec = 5;  // 5 seconds
         timeout.tv_usec = 0; // 0 microseconds
         // Wait for activity on stdin or sockfd
 
@@ -128,10 +142,11 @@ int main(int argc, char *argv[])
             // Send the pending queries again
             for (int i = 1; i < cnt; i++)
             {
-                if (pendingQueryTable[i].ID != 0)
+                if (pendingQueryTable[i].query.ID != 0 && pendingQueryTable[i].retries<3)
                 {
                     struct SimDNSQuery packet;
-                    packet = pendingQueryTable[i];
+                    packet = pendingQueryTable[i].query;
+                    pendingQueryTable[i].retries++;
 
                     // Construct send buffer
                     char send_buffer[sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct SimDNSQuery)];
@@ -170,6 +185,10 @@ int main(int argc, char *argv[])
 
                     sendto(sockfd, send_buffer, sizeof(send_buffer), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
                 }
+                // else if(pendingQueryTable[i].retries==3) 
+                // {
+                //     printf("retries finished\n");
+                // }
 
                 fflush(stdout);
                 // break;
@@ -322,7 +341,7 @@ int main(int argc, char *argv[])
             if (!(response->ID > 0 && response->ID < 100000))
                 continue;
 
-            if (pendingQueryTable[response->ID].ID == 0)
+            if (pendingQueryTable[response->ID].query.ID == 0)
                 continue;
             
 
@@ -330,14 +349,18 @@ int main(int argc, char *argv[])
             printf("\nQuery ID: %d\nTotal query strings: %d\n", response->ID, response->NumResponses);
             for (int i = 0; i < response->NumResponses; i++)
             {
-                if (response->Responses[i] != 0)
+                if (response->Responses[i].validFlag != 0)
                 {
                     // struct in_addr addr;
                     // addr.s_addr = response->Responses[i];
-                    printf("%s\t%s\n", pendingQueryTable[response->ID].Queries[i],response->Responses[i]);
+                    printf("%s\t%s\n", pendingQueryTable[response->ID].query.Queries[i],response->Responses[i].IP);
+                }
+                else
+                {
+                    printf("%s\t%s\n", pendingQueryTable[response->ID].query.Queries[i], "NO IP ADDRESS FOUND");
                 }
             }
-            pendingQueryTable[response->ID].ID = 0;
+            pendingQueryTable[response->ID].query.ID = 0;
         }
     }
     return 0;
